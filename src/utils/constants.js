@@ -1,0 +1,89 @@
+'use strict';
+
+const FLOWS = {
+  IDLE: 'IDLE',
+  REGISTRATION: 'REGISTRATION',
+  MAIN_MENU: 'MAIN_MENU',
+  OFFER_RIDE: 'OFFER_RIDE',
+  FIND_RIDE: 'FIND_RIDE',
+  VIEW_RESULTS: 'VIEW_RESULTS',
+  BOOKING: 'BOOKING',
+  MY_RIDES: 'MY_RIDES',
+};
+
+const STEPS = {
+  // Registration
+  REG_ASK_NAME: 'REG_ASK_NAME',
+  REG_ASK_EMAIL: 'REG_ASK_EMAIL',
+  REG_ASK_HOME: 'REG_ASK_HOME',
+  REG_ASK_OFFICE: 'REG_ASK_OFFICE',
+  REG_ASK_TIMING: 'REG_ASK_TIMING',
+  REG_ASK_VEHICLE: 'REG_ASK_VEHICLE',
+  REG_OTP_SENT: 'REG_OTP_SENT',
+
+  // Main menu
+  MENU_AWAITING: 'MENU_AWAITING',
+
+  // Offer ride
+  OFFER_ASK_PICKUP: 'OFFER_ASK_PICKUP',
+  OFFER_ASK_DEST: 'OFFER_ASK_DEST',
+  OFFER_ASK_TIME: 'OFFER_ASK_TIME',
+  OFFER_ASK_SEATS: 'OFFER_ASK_SEATS',
+  OFFER_ASK_PRICE: 'OFFER_ASK_PRICE',
+  OFFER_ASK_VEHICLE: 'OFFER_ASK_VEHICLE',
+  OFFER_CONFIRM: 'OFFER_CONFIRM',
+
+  // Find ride
+  FIND_ASK_PICKUP: 'FIND_ASK_PICKUP',
+  FIND_ASK_DEST: 'FIND_ASK_DEST',
+  FIND_ASK_TIME: 'FIND_ASK_TIME',
+
+  // View results
+  RESULTS_SHOW: 'RESULTS_SHOW',
+
+  // Booking
+  BOOK_ASK_SEATS: 'BOOK_ASK_SEATS',
+  BOOK_CONFIRM: 'BOOK_CONFIRM',
+};
+
+const VEHICLE_TYPES = ['car', 'bike', 'auto'];
+
+const RIDE_STATUS = {
+  ACTIVE: 'active',
+  FULL: 'full',
+  CANCELLED: 'cancelled',
+  COMPLETED: 'completed',
+};
+
+const BOOKING_STATUS = {
+  CONFIRMED: 'confirmed',
+  CANCELLED: 'cancelled',
+};
+
+// How many rides to show per page in search results
+const RESULTS_PAGE_SIZE = 3;
+
+// Session TTL in milliseconds (30 minutes)
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
+// OTP config
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_MAX_ATTEMPTS = 3;
+
+// Ride matching thresholds
+const MAX_PICKUP_RADIUS_KM = 3.0;
+const MAX_TIME_DIFF_MINUTES = 30;
+
+module.exports = {
+  FLOWS,
+  STEPS,
+  VEHICLE_TYPES,
+  RIDE_STATUS,
+  BOOKING_STATUS,
+  RESULTS_PAGE_SIZE,
+  SESSION_TTL_MS,
+  OTP_EXPIRY_MS,
+  OTP_MAX_ATTEMPTS,
+  MAX_PICKUP_RADIUS_KM,
+  MAX_TIME_DIFF_MINUTES,
+};
