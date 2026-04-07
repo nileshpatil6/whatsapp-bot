@@ -6,36 +6,65 @@ const bookingService = require('../services/bookingService');
 const userService = require('../services/userService');
 const rideService = require('../services/rideService');
 const { FLOWS, STEPS } = require('../utils/constants');
-const { formatMyBookings, formatDepartureTime } = require('../utils/formatters');
+const { formatDepartureTime } = require('../utils/formatters');
+const { parseTimeInput, formatDateForDb } = require('../utils/validators');
 
 async function start(phone, user) {
   if (!user) user = userService.getUserByPhone(phone);
 
   const bookings = bookingService.getBookingsByUser(user.UserID);
-  const offeredRides = rideService.getRidesByDriver(user.UserID);
+  const offeredRides = rideService.getRidesByDriver(user.UserID)
+    .filter(r => r.Status === 'active').slice(0, 5);
 
   sessionManager.setSession(phone, {
     flow: FLOWS.MY_BOOKINGS,
     step: STEPS.CANCEL_SELECT,
-    data: { bookings },
+    data: { bookings, offeredRides },
   });
 
-  // Show bookings
-  await waClient.sendText(phone, formatMyBookings(bookings));
+  const hasBookings = bookings.length > 0;
+  const hasRides = offeredRides.length > 0;
 
-  // Show offered rides if any
-  if (offeredRides.length > 0) {
-    let msg = '🚗 *Rides You Offered (as Driver):*\n\n';
-    offeredRides.slice(0, 5).forEach((ride, i) => {
-      const status = ride.Status === 'active' ? '🟢 Active' : ride.Status === 'full' ? '🔴 Full' : '⚫ ' + ride.Status;
-      msg += `${i + 1}. ${ride.PickupLocation} → ${ride.Destination}\n   ${formatDepartureTime(ride.DepartureTime)} | ${ride.TotalSeats - ride.BookedSeats}/${ride.TotalSeats} seats | ${status}\n\n`;
-    });
-    await waClient.sendText(phone, msg.trim());
+  if (!hasBookings && !hasRides) {
+    sessionManager.clearSession(phone);
+    return waClient.sendText(phone,
+      '📋 *My Bookings & Rides*\n\n' +
+      'You have no active bookings or offered rides.\n\n' +
+      'Reply *2* to find a ride or *1* to offer one.'
+    );
   }
 
-  await waClient.sendText(phone,
-    '_Reply the booking number to *cancel* it, or reply *Menu* to go back._'
-  );
+  const sections = [];
+
+  if (hasBookings) {
+    sections.push({
+      title: '📋 Your Bookings',
+      rows: bookings.slice(0, 5).map((b) => ({
+        id: `booking_${b.BookingID}`,
+        title: trunc(`${b.PickupLocation} → ${b.Destination}`, 24),
+        description: trunc(`${formatDepartureTime(b.DepartureTime)} | #${b.BookingID} | ${b.SeatsBooked} seat(s)`, 72),
+      })),
+    });
+  }
+
+  if (hasRides) {
+    sections.push({
+      title: '🚗 Rides You Offered',
+      rows: offeredRides.map((r) => ({
+        id: `ride_${r.RideID}`,
+        title: trunc(`${r.PickupLocation} → ${r.Destination}`, 24),
+        description: trunc(`${formatDepartureTime(r.DepartureTime)} | ${r.BookedSeats}/${r.TotalSeats} booked`, 72),
+      })),
+    });
+  }
+
+  const bodyText =
+    '📋 *My Bookings & Rides*\n\n' +
+    (hasBookings ? `✅ ${bookings.length} booking(s) — tap to cancel\n` : '') +
+    (hasRides ? `🚗 ${offeredRides.length} offered ride(s) — tap to manage\n` : '') +
+    '\n_Reply *Menu* to go back._';
+
+  return waClient.sendList(phone, bodyText, 'View Details 📋', sections);
 }
 
 async function handle(phone, text, session) {
@@ -47,46 +76,265 @@ async function handle(phone, text, session) {
     return require('./mainMenuFlow').show(phone, user);
   }
 
-  const { bookings } = session.data;
+  switch (session.step) {
+    case STEPS.CANCEL_SELECT:        return handleSelect(phone, text, session);
+    case STEPS.CANCEL_CONFIRM:       return handleBookingCancelConfirm(phone, text, session);
+    case STEPS.RIDE_MANAGE:          return handleRideManage(phone, text, session);
+    case STEPS.RIDE_CANCEL_CONFIRM:  return handleRideCancelConfirm(phone, text, session);
+    case STEPS.RIDE_RESCHEDULE_TIME: return handleRescheduleTime(phone, text, session);
+    default:
+      return start(phone, userService.getUserByPhone(phone));
+  }
+}
+
+// ─── SELECT: user tapped something from the list ─────────────────────────────
+
+async function handleSelect(phone, text, session) {
+  const t = text.trim().toLowerCase();
+
+  // Booking row tapped
+  if (t.startsWith('booking_')) {
+    const bookingId = parseInt(t.replace('booking_', ''), 10);
+    const booking = session.data.bookings.find(b => b.BookingID === bookingId);
+    if (!booking) return waClient.sendText(phone, '❌ Booking not found. Reply *Menu* to go back.');
+    return askCancelBooking(phone, booking);
+  }
+
+  // Offered ride row tapped
+  if (t.startsWith('ride_')) {
+    const rideId = parseInt(t.replace('ride_', ''), 10);
+    return showRideManageMenu(phone, rideId);
+  }
+
+  // Numeric fallback: user typed "1", "2" etc. — map to bookings
   const idx = parseInt(text.trim(), 10);
-
+  const { bookings } = session.data;
   if (!isNaN(idx) && idx >= 1 && idx <= bookings.length) {
-    const booking = bookings[idx - 1];
+    return askCancelBooking(phone, bookings[idx - 1]);
+  }
 
+  await waClient.sendText(phone, '👆 Tap an item from the list to manage it, or reply *Menu* to go back.');
+}
+
+// ─── BOOKING CANCEL ───────────────────────────────────────────────────────────
+
+async function askCancelBooking(phone, booking) {
+  sessionManager.setSession(phone, {
+    step: STEPS.CANCEL_CONFIRM,
+    data: {
+      cancelBookingId: booking.BookingID,
+      cancelBookingText: `${booking.PickupLocation} → ${booking.Destination}`,
+    },
+  });
+
+  return waClient.sendButtons(phone,
+    `⚠️ *Cancel Booking #${booking.BookingID}?*\n\n` +
+    `🗺️ Route: ${booking.PickupLocation} → ${booking.Destination}\n` +
+    `🕐 Time: ${formatDepartureTime(booking.DepartureTime)}\n` +
+    `💺 ${booking.SeatsBooked} seat(s)\n\n` +
+    '_Please cancel at least 30 min before departure.\nRepeated cancellations may affect your account._',
+    [
+      { id: 'cancel_yes', title: '⚠️ Yes, Cancel' },
+      { id: 'cancel_no', title: '← Keep Booking' },
+    ]
+  );
+}
+
+async function handleBookingCancelConfirm(phone, text, session) {
+  const t = text.trim().toLowerCase();
+
+  if (['cancel_yes', 'yes', '⚠️ yes, cancel'].includes(t)) {
+    bookingService.cancelBooking(session.data.cancelBookingId);
+    sessionManager.clearSession(phone);
+    return waClient.sendText(phone,
+      `✅ *Booking #${session.data.cancelBookingId} cancelled.*\n\n` +
+      `_${session.data.cancelBookingText}_\n\n` +
+      'Reply *Menu* to go back.'
+    );
+  }
+
+  if (['cancel_no', 'no', '← keep booking'].includes(t)) {
+    const user = userService.getUserByPhone(phone);
+    return start(phone, user);
+  }
+
+  return waClient.sendButtons(phone, 'Cancel this booking?',
+    [
+      { id: 'cancel_yes', title: '⚠️ Yes, Cancel' },
+      { id: 'cancel_no', title: '← Keep Booking' },
+    ]
+  );
+}
+
+// ─── RIDE MANAGE ──────────────────────────────────────────────────────────────
+
+async function showRideManageMenu(phone, rideId) {
+  const ride = rideService.getRideById(rideId);
+  if (!ride || ride.Status !== 'active') {
+    await waClient.sendText(phone, '❌ Ride not found or already cancelled. Reply *Menu* to go back.');
+    return;
+  }
+
+  sessionManager.setSession(phone, {
+    step: STEPS.RIDE_MANAGE,
+    data: { managingRideId: rideId },
+  });
+
+  return waClient.sendButtons(phone,
+    `🚗 *Manage Your Ride*\n\n` +
+    `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
+    `🕐 Time: ${formatDepartureTime(ride.DepartureTime)}\n` +
+    `💺 ${ride.BookedSeats}/${ride.TotalSeats} seats booked\n` +
+    `💰 ₹${ride.PricePerSeat}/seat\n\n` +
+    'What would you like to do?',
+    [
+      { id: 'ride_reschedule', title: '🗓️ Reschedule' },
+      { id: 'ride_cancel', title: '❌ Cancel Ride' },
+      { id: 'ride_back', title: '← Back' },
+    ]
+  );
+}
+
+async function handleRideManage(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { managingRideId } = session.data;
+
+  if (['ride_back', 'back', '← back'].includes(t)) {
+    const user = userService.getUserByPhone(phone);
+    return start(phone, user);
+  }
+
+  if (['ride_reschedule', '🗓️ reschedule'].includes(t)) {
+    const ride = rideService.getRideById(managingRideId);
+    sessionManager.setSession(phone, { step: STEPS.RIDE_RESCHEDULE_TIME });
+    return waClient.sendText(phone,
+      `🗓️ *Reschedule Ride*\n\n` +
+      `Current time: *${formatDepartureTime(ride ? ride.DepartureTime : '')}*\n\n` +
+      `Enter the *new departure time:*\n_(e.g. 9 AM, 8:30 AM, tomorrow 9 AM)_`
+    );
+  }
+
+  if (['ride_cancel', '❌ cancel ride'].includes(t)) {
+    const passengers = rideService.getPassengersByRide(managingRideId);
+    const ride = rideService.getRideById(managingRideId);
     sessionManager.setSession(phone, {
-      step: STEPS.CANCEL_CONFIRM,
-      data: { cancelBookingId: booking.BookingID, cancelBookingText: `${booking.PickupLocation} → ${booking.Destination}` },
+      step: STEPS.RIDE_CANCEL_CONFIRM,
+      data: { managingRideId, passengerCount: passengers.length },
     });
 
+    const passNote = passengers.length > 0
+      ? `\n\n⚠️ *${passengers.length} passenger(s)* will be notified.`
+      : '\n\n_(No passengers booked yet)_';
+
     return waClient.sendButtons(phone,
-      `⚠️ *Cancel Booking #${booking.BookingID}?*\n\n` +
-      `Route: ${booking.PickupLocation} → ${booking.Destination}\n` +
-      `Time: ${formatDepartureTime(booking.DepartureTime)}\n\n` +
-      '_Please cancel at least 30 minutes before departure.\nRepeated cancellations may affect your account._',
+      `❌ *Cancel Your Ride?*\n\n` +
+      `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
+      `🕐 ${ride ? formatDepartureTime(ride.DepartureTime) : ''}` +
+      passNote,
       [
-        { id: 'cancel_yes', title: '⚠️ Yes, Cancel' },
-        { id: 'cancel_no', title: '← Keep Booking' },
+        { id: 'rcancel_yes', title: '❌ Yes, Cancel Ride' },
+        { id: 'rcancel_no', title: '← Keep Ride' },
       ]
     );
   }
 
-  if (session.step === STEPS.CANCEL_CONFIRM) {
-    if (['cancel_yes', 'yes', '⚠️ yes, cancel'].includes(t)) {
-      bookingService.cancelBooking(session.data.cancelBookingId);
-      sessionManager.clearSession(phone);
-      await waClient.sendText(phone,
-        `✅ Booking #${session.data.cancelBookingId} cancelled.\n\n_${session.data.cancelBookingText}_\n\nReply *Menu* to go back.`
-      );
-      return;
+  // Unexpected — re-show buttons
+  return showRideManageMenu(phone, managingRideId);
+}
+
+// ─── RIDE CANCEL CONFIRM ──────────────────────────────────────────────────────
+
+async function handleRideCancelConfirm(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { managingRideId } = session.data;
+
+  if (['rcancel_no', 'no', '← keep ride'].includes(t)) {
+    const user = userService.getUserByPhone(phone);
+    return start(phone, user);
+  }
+
+  if (['rcancel_yes', 'yes', '❌ yes, cancel ride'].includes(t)) {
+    const ride = rideService.getRideById(managingRideId);
+    const passengers = rideService.getPassengersByRide(managingRideId);
+
+    bookingService.cancelBookingsByRide(managingRideId);
+    rideService.cancelRide(managingRideId);
+    sessionManager.clearSession(phone);
+
+    await waClient.sendText(phone,
+      `✅ *Ride Cancelled.*\n\n` +
+      `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
+      `🕐 ${ride ? formatDepartureTime(ride.DepartureTime) : ''}\n\n` +
+      (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...\n\n` : '') +
+      'Reply *Menu* to go back.'
+    );
+
+    // Notify passengers — fire and forget
+    for (const p of passengers) {
+      waClient.sendText(p.Phone,
+        `⚠️ *Ride Cancelled by Driver*\n\n` +
+        `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
+        `(${formatDepartureTime(ride.DepartureTime)}) has been *cancelled*.\n\n` +
+        `Booking #${p.BookingID} has been cancelled.\n\n` +
+        `Reply *find* to search for another ride. 🚗`
+      ).catch(err => console.error('[MyBookings] Passenger cancel notify failed:', err.message));
     }
-    sessionManager.setSession(phone, { step: STEPS.CANCEL_SELECT });
-    await waClient.sendText(phone, '↩️ Cancellation aborted. Booking kept.\n\nReply *Menu* to go back.');
     return;
   }
 
-  await waClient.sendText(phone,
-    'Reply the *booking number* to cancel, or *Menu* to go back.'
+  return waClient.sendButtons(phone, '❌ Cancel this ride?',
+    [
+      { id: 'rcancel_yes', title: '❌ Yes, Cancel Ride' },
+      { id: 'rcancel_no', title: '← Keep Ride' },
+    ]
   );
+}
+
+// ─── RESCHEDULE TIME ──────────────────────────────────────────────────────────
+
+async function handleRescheduleTime(phone, text, session) {
+  const { managingRideId } = session.data;
+
+  const parsed = parseTimeInput(text);
+  if (!parsed) {
+    return waClient.sendText(phone,
+      '❌ Couldn\'t understand that time.\n_(e.g. *9 AM*, *8:30 AM*, *tomorrow 9 AM*)_\n\n🗓️ *New Departure Time:*'
+    );
+  }
+
+  const newTime = formatDateForDb(parsed);
+  const newDisplay = formatDepartureTime(newTime);
+  const ride = rideService.getRideById(managingRideId);
+  const passengers = rideService.getPassengersByRide(managingRideId);
+
+  rideService.rescheduleRide(managingRideId, newTime);
+  sessionManager.clearSession(phone);
+
+  await waClient.sendText(phone,
+    `✅ *Ride Rescheduled!*\n\n` +
+    `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
+    `🕐 New time: *${newDisplay}*\n\n` +
+    (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...\n\n` : '') +
+    'Reply *Menu* to go back.'
+  );
+
+  // Notify passengers — fire and forget
+  for (const p of passengers) {
+    waClient.sendText(p.Phone,
+      `🗓️ *Ride Rescheduled*\n\n` +
+      `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
+      `has been rescheduled by the driver.\n\n` +
+      `🕐 New departure time: *${newDisplay}*\n` +
+      `🎫 Booking #${p.BookingID} is still *confirmed*.\n\n` +
+      `Reply *3* to view your bookings. 🚗`
+    ).catch(err => console.error('[MyBookings] Passenger reschedule notify failed:', err.message));
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function trunc(str, max) {
+  return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
 module.exports = { start, handle };

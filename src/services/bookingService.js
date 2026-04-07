@@ -58,7 +58,14 @@ function rateBooking(bookingId, rating) {
   return getDb().prepare('UPDATE Bookings SET Rating = ? WHERE BookingID = ?').run(rating, bookingId);
 }
 
+// Cancel all confirmed bookings for a ride (when driver cancels the ride)
+function cancelBookingsByRide(rideId) {
+  return getDb().prepare(
+    "UPDATE Bookings SET Status = 'cancelled' WHERE RideID = ? AND Status = 'confirmed'"
+  ).run(rideId);
+}
+
 module.exports = {
   createBooking, getBookingById, getBookingsByUser,
-  getActiveBookingsByUser, cancelBooking, rateBooking,
+  getActiveBookingsByUser, cancelBooking, rateBooking, cancelBookingsByRide,
 };

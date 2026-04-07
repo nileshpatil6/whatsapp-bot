@@ -46,9 +46,14 @@ const STEPS = {
   // Recurring
   RECURRING_ASK: 'RECURRING_ASK',
 
-  // Cancel
+  // My Bookings — passenger side
   CANCEL_SELECT: 'CANCEL_SELECT',
   CANCEL_CONFIRM: 'CANCEL_CONFIRM',
+
+  // My Bookings — driver ride management
+  RIDE_MANAGE: 'RIDE_MANAGE',
+  RIDE_CANCEL_CONFIRM: 'RIDE_CANCEL_CONFIRM',
+  RIDE_RESCHEDULE_TIME: 'RIDE_RESCHEDULE_TIME',
 
   // Rating
   RATING_ASK: 'RATING_ASK',

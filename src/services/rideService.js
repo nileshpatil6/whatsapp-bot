@@ -57,7 +57,26 @@ function updateRideStatus(rideId, status) {
   return getDb().prepare('UPDATE Rides SET Status = ? WHERE RideID = ?').run(status, rideId);
 }
 
+function cancelRide(rideId) {
+  return getDb().prepare("UPDATE Rides SET Status = 'cancelled' WHERE RideID = ?").run(rideId);
+}
+
+function rescheduleRide(rideId, newDepartureTime) {
+  return getDb().prepare('UPDATE Rides SET DepartureTime = ? WHERE RideID = ?').run(newDepartureTime, rideId);
+}
+
+// Returns passengers with booking info for a ride (for notifications)
+function getPassengersByRide(rideId) {
+  return getDb().prepare(`
+    SELECT u.Phone, u.Name, b.SeatsBooked, b.BookingID
+    FROM Bookings b
+    JOIN Users u ON b.UserID = u.UserID
+    WHERE b.RideID = ? AND b.Status = 'confirmed'
+  `).all(rideId);
+}
+
 module.exports = {
   createRide, getRideById, getActiveRides,
   getRidesByDriver, incrementBookedSeats, updateRideStatus,
+  cancelRide, rescheduleRide, getPassengersByRide,
 };
