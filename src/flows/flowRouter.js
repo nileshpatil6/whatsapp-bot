@@ -96,9 +96,6 @@ async function route(phone, text) {
       case FLOWS.FIND_RIDE:
         return getFlow('findRide').handle(phone, text, session);
 
-      case FLOWS.VIEW_RESULTS:
-        return getFlow('findRide').handleResults(phone, text, session);
-
       case FLOWS.BOOKING:
         return getFlow('booking').handle(phone, text, session);
 

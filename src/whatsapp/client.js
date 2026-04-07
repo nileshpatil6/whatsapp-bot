@@ -54,6 +54,27 @@ async function sendButtons(to, bodyText, buttons) {
   });
 }
 
+// Send a list-picker message (up to 10 rows across all sections)
+// sections: [{ title: '...', rows: [{ id, title, description }] }]
+async function sendList(to, bodyText, buttonTitle, sections) {
+  return post({
+    messaging_product: 'whatsapp',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: bodyText },
+      action: {
+        button: buttonTitle.slice(0, 20),
+        sections: sections.map((s) => ({
+          title: s.title ? s.title.slice(0, 24) : undefined,
+          rows: s.rows,
+        })),
+      },
+    },
+  });
+}
+
 // Mark a message as read
 async function markRead(messageId) {
   return post({
@@ -63,4 +84,4 @@ async function markRead(messageId) {
   });
 }
 
-module.exports = { sendText, sendButtons, markRead };
+module.exports = { sendText, sendButtons, sendList, markRead };
