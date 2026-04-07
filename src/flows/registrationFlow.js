@@ -150,7 +150,8 @@ async function handleVehicle(phone, text, session) {
     `🏢 Office: ${officeLocation}\n` +
     `⚧ Gender: ${gender}\n` +
     `🚗 Vehicle owner: ${vehicleOwner}\n\n` +
-    '_Your info is saved. You won\'t need to enter it again._'
+    '_Your info is saved. You won\'t need to enter it again._\n\n' +
+    '📄 Reply *privacy* anytime to read our Privacy Policy.'
   );
 
   // Show main menu

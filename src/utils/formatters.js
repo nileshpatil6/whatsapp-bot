@@ -174,9 +174,40 @@ function formatHelpText() {
     '• Reply *cancel* — Cancel a booking\n' +
     '• Reply *menu* — Return to main menu\n' +
     '• Reply *restart* — Start over\n\n' +
-    '📄 *Terms & Privacy*\n' +
+    '📄 *Legal*\n' +
+    'Reply *privacy* to read our Privacy Policy.\n' +
     'By using Loopz you agree to our terms. All rides are between users directly.\n\n' +
     'For support, reply here anytime. 🚗'
+  );
+}
+
+function formatPrivacyPolicy() {
+  return (
+    '📄 *Loopz Ride Share — Privacy Policy*\n\n' +
+    '*1. Introduction*\n' +
+    'Loopz values your privacy and is committed to protecting your personal information.\n\n' +
+    '*2. Information We Collect*\n' +
+    '• Name & phone number\n' +
+    '• Ride details (pickup, destination, time)\n\n' +
+    '*3. How We Use It*\n' +
+    '• Connect you with other users for ride sharing\n' +
+    '• Facilitate ride matching\n' +
+    '• Improve service quality\n\n' +
+    '*4. Information Sharing*\n' +
+    'Your name and ride details are shared with matched users.\n' +
+    'Loopz does *NOT* sell or share your data with third parties for marketing.\n\n' +
+    '*5. Data Security*\n' +
+    'We take reasonable steps to protect your data. Since communication happens via WhatsApp, complete security cannot be guaranteed.\n\n' +
+    '*6. User Responsibility*\n' +
+    '• Avoid sharing sensitive personal information\n' +
+    '• Verify details before sharing contact information\n\n' +
+    '*7. Third-Party Platforms*\n' +
+    'Loopz operates via WhatsApp. Use of WhatsApp is subject to Meta Platforms policies.\n\n' +
+    '*8. Changes to Policy*\n' +
+    'This policy may be updated periodically. Continued use of Loopz implies acceptance.\n\n' +
+    '*9. Consent*\n' +
+    'By using Loopz, you consent to the collection and use of your information as described above.\n\n' +
+    '_Reply *menu* to go back. 🚗_'
   );
 }
 
@@ -197,5 +228,5 @@ module.exports = {
   formatDepartureTime, formatRideCard, formatDisclaimer,
   formatMainMenu, formatRideFound, formatBookingConfirmation,
   formatSafetyInfo, formatLiabilityNotice, formatDriverNotification,
-  formatMyBookings, formatHelpText, formatNoRideAvailable,
+  formatMyBookings, formatHelpText, formatNoRideAvailable, formatPrivacyPolicy,
 };
