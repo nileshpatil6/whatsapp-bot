@@ -4,15 +4,16 @@ const { getDb } = require('../db/database');
 
 function createRide({ driverId, pickupLocation, pickupLat, pickupLng,
                        destination, destLat, destLng, departureTime,
-                       totalSeats, pricePerSeat, vehicleType }) {
+                       totalSeats, pricePerSeat, vehicleType,
+                       ridePreference = 'all', isRecurring = 0 }) {
   const result = getDb().prepare(`
     INSERT INTO Rides
       (DriverID, PickupLocation, PickupLat, PickupLng, Destination, DestLat, DestLng,
-       DepartureTime, TotalSeats, PricePerSeat, VehicleType)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       DepartureTime, TotalSeats, PricePerSeat, VehicleType, RidePreference, IsRecurring)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(driverId, pickupLocation, pickupLat, pickupLng,
          destination, destLat, destLng, departureTime,
-         totalSeats, pricePerSeat, vehicleType);
+         totalSeats, pricePerSeat, vehicleType, ridePreference, isRecurring);
 
   return getRideById(result.lastInsertRowid);
 }
@@ -21,14 +22,19 @@ function getRideById(rideId) {
   return getDb().prepare('SELECT * FROM Rides WHERE RideID = ?').get(rideId) || null;
 }
 
-function getActiveRides() {
-  return getDb().prepare(`
+// Get active rides with optional women-only filter
+function getActiveRides(preferenceFilter = null) {
+  let sql = `
     SELECT * FROM Rides
     WHERE Status = 'active'
       AND BookedSeats < TotalSeats
       AND DepartureTime > datetime('now')
-    ORDER BY DepartureTime ASC
-  `).all();
+  `;
+  if (preferenceFilter === 'women_only') {
+    sql += ` AND RidePreference = 'women_only'`;
+  }
+  sql += ' ORDER BY DepartureTime ASC';
+  return getDb().prepare(sql).all();
 }
 
 function getRidesByDriver(driverId) {
@@ -52,10 +58,6 @@ function updateRideStatus(rideId, status) {
 }
 
 module.exports = {
-  createRide,
-  getRideById,
-  getActiveRides,
-  getRidesByDriver,
-  incrementBookedSeats,
-  updateRideStatus,
+  createRide, getRideById, getActiveRides,
+  getRidesByDriver, incrementBookedSeats, updateRideStatus,
 };

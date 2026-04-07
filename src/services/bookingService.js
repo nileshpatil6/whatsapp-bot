@@ -2,12 +2,11 @@
 
 const { getDb } = require('../db/database');
 
-function createBooking({ rideId, userId, seatsBooked, totalAmount }) {
+function createBooking({ rideId, userId, seatsBooked, totalAmount, isRecurring = 0 }) {
   const result = getDb().prepare(`
-    INSERT INTO Bookings (RideID, UserID, SeatsBooked, TotalAmount)
-    VALUES (?, ?, ?, ?)
-  `).run(rideId, userId, seatsBooked, totalAmount);
-
+    INSERT INTO Bookings (RideID, UserID, SeatsBooked, TotalAmount, IsRecurring)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(rideId, userId, seatsBooked, totalAmount, isRecurring);
   return getBookingById(result.lastInsertRowid);
 }
 
@@ -17,22 +16,49 @@ function getBookingById(bookingId) {
 
 function getBookingsByUser(userId) {
   return getDb().prepare(`
-    SELECT b.*, r.PickupLocation, r.Destination, r.DepartureTime
+    SELECT b.*, r.PickupLocation, r.Destination, r.DepartureTime, r.PricePerSeat
     FROM Bookings b
     JOIN Rides r ON b.RideID = r.RideID
-    WHERE b.UserID = ?
-    ORDER BY b.CreatedAt DESC
+    WHERE b.UserID = ? AND b.Status != 'cancelled'
+    ORDER BY r.DepartureTime DESC
     LIMIT 10
   `).all(userId);
 }
 
-function getBookingsByRide(rideId) {
+function getActiveBookingsByUser(userId) {
   return getDb().prepare(`
-    SELECT b.*, u.Name, u.Phone
+    SELECT b.*, r.PickupLocation, r.Destination, r.DepartureTime, r.DriverID
     FROM Bookings b
-    JOIN Users u ON b.UserID = u.UserID
-    WHERE b.RideID = ?
-  `).all(rideId);
+    JOIN Rides r ON b.RideID = r.RideID
+    WHERE b.UserID = ? AND b.Status = 'confirmed'
+      AND r.DepartureTime > datetime('now')
+    ORDER BY r.DepartureTime ASC
+  `).all(userId);
 }
 
-module.exports = { createBooking, getBookingById, getBookingsByUser, getBookingsByRide };
+function cancelBooking(bookingId) {
+  const result = getDb().prepare(`
+    UPDATE Bookings SET Status = 'cancelled' WHERE BookingID = ?
+  `).run(bookingId);
+
+  if (result.changes > 0) {
+    // Give back the seats
+    const booking = getBookingById(bookingId);
+    if (booking) {
+      getDb().prepare(`
+        UPDATE Rides SET BookedSeats = MAX(0, BookedSeats - ?), Status = 'active'
+        WHERE RideID = ?
+      `).run(booking.SeatsBooked, booking.RideID);
+    }
+  }
+  return result.changes;
+}
+
+function rateBooking(bookingId, rating) {
+  return getDb().prepare('UPDATE Bookings SET Rating = ? WHERE BookingID = ?').run(rating, bookingId);
+}
+
+module.exports = {
+  createBooking, getBookingById, getBookingsByUser,
+  getActiveBookingsByUser, cancelBooking, rateBooking,
+};

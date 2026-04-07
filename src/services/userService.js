@@ -10,18 +10,24 @@ function getUserById(userId) {
   return getDb().prepare('SELECT * FROM Users WHERE UserID = ?').get(userId) || null;
 }
 
-function userExistsByEmail(email) {
-  const row = getDb().prepare('SELECT 1 FROM Users WHERE Email = ? LIMIT 1').get(email.toLowerCase());
-  return !!row;
-}
-
-function createUser({ phone, name, email, homeArea, officeLocation, officeTiming, vehicleOwner }) {
+function createUser({ phone, name, gender, homeArea, officeLocation, vehicleOwner }) {
   const result = getDb().prepare(`
-    INSERT INTO Users (Phone, Name, Email, HomeArea, OfficeLocation, OfficeTiming, VehicleOwner, IsVerified)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-  `).run(phone, name, email.toLowerCase(), homeArea, officeLocation, officeTiming, vehicleOwner);
+    INSERT INTO Users (Phone, Name, Gender, HomeArea, OfficeLocation, VehicleOwner, IsVerified)
+    VALUES (?, ?, ?, ?, ?, ?, 1)
+  `).run(phone, name, gender, homeArea, officeLocation, vehicleOwner);
 
   return getUserById(result.lastInsertRowid);
 }
 
-module.exports = { getUserByPhone, getUserById, userExistsByEmail, createUser };
+function markDisclaimerSeen(phone) {
+  getDb().prepare('UPDATE Users SET HasSeenDisclaimer = 1 WHERE Phone = ?').run(phone);
+}
+
+function updateRating(userId, rating) {
+  // Average existing rating with new one
+  getDb().prepare(`
+    UPDATE Users SET Rating = ROUND((Rating + ?) / 2.0, 1) WHERE UserID = ?
+  `).run(rating, userId);
+}
+
+module.exports = { getUserByPhone, getUserById, createUser, markDisclaimerSeen, updateRating };

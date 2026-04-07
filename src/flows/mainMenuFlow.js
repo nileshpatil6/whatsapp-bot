@@ -12,35 +12,22 @@ async function show(phone, user) {
     step: STEPS.MENU_AWAITING,
     data: {},
   });
-
-  const name = user ? user.Name : 'there';
-  await waClient.sendText(phone, formatMainMenu(name));
+  await waClient.sendText(phone, formatMainMenu(user ? user.Name : 'there'));
 }
 
 async function handle(phone, text, session, user) {
-  const t = text.trim();
-
-  // Fetch fresh user if not passed
   if (!user) user = userService.getUserByPhone(phone);
+  const t = text.trim().toLowerCase();
 
   switch (t) {
-    case '1':
-      return require('./offerRideFlow').start(phone);
-    case '2':
-      return require('./findRideFlow').start(phone);
-    case '3':
-      return require('./myRidesFlow').start(phone, user);
-    case '4':
-      // Help — stay on main menu
-      return waClient.sendText(phone,
-        '🆘 *Help*\n\n' +
-        'Reply *1* — Offer a ride (you\'re the driver)\n' +
-        'Reply *2* — Find and book a ride\n' +
-        'Reply *3* — See your rides & bookings\n' +
-        'Reply *Menu* — Return to this menu\n' +
-        'Reply *Restart* — Cancel and start over\n\n' +
-        'Reply *1*, *2*, *3*, or *4* to continue.'
-      );
+    case '1': case 'offer': case 'offer ride':
+      return require('./offerRideFlow').start(phone, user);
+    case '2': case 'find': case 'find ride': case 'search':
+      return require('./findRideFlow').start(phone, user);
+    case '3': case 'my bookings': case 'bookings': case 'my rides':
+      return require('./myBookingsFlow').start(phone, user);
+    case '4': case 'help':
+      return require('./flowRouter').sendHelp(phone);
     default:
       return waClient.sendText(phone,
         'Please reply with *1*, *2*, *3*, or *4*.\n\n' + formatMainMenu(user ? user.Name : 'there')
