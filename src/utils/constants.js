@@ -13,15 +13,12 @@ const FLOWS = {
   CANCEL_BOOKING: 'CANCEL_BOOKING',
   RATING: 'RATING',
   ACTIVE_RIDE: 'ACTIVE_RIDE',
+  POST_TRIP: 'POST_TRIP',
 };
 
 const STEPS = {
-  // Registration (5 steps, no OTP)
+  // Registration (1 step)
   REG_ASK_NAME: 'REG_ASK_NAME',
-  REG_ASK_GENDER: 'REG_ASK_GENDER',
-  REG_ASK_HOME: 'REG_ASK_HOME',
-  REG_ASK_OFFICE: 'REG_ASK_OFFICE',
-  REG_ASK_VEHICLE: 'REG_ASK_VEHICLE',
 
   // Main menu
   MENU_AWAITING: 'MENU_AWAITING',
@@ -60,6 +57,9 @@ const STEPS = {
   // Rating
   RATING_ASK: 'RATING_ASK',
   RATING_FEEDBACK: 'RATING_FEEDBACK',
+
+  // Post-trip re-route prompt
+  POST_TRIP_ASK: 'POST_TRIP_ASK',
 };
 
 const RIDE_PREFERENCE = {

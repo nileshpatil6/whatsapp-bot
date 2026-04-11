@@ -15,6 +15,7 @@ function getFlow(name) {
     case 'findRide':     return require('./findRideFlow');
     case 'booking':      return require('./bookingFlow');
     case 'myBookings':   return require('./myBookingsFlow');
+    case 'postTrip':     return require('./postTripFlow');
     default: throw new Error(`Unknown flow: ${name}`);
   }
 }
@@ -111,6 +112,9 @@ async function route(phone, text) {
 
       case FLOWS.MY_BOOKINGS:
         return getFlow('myBookings').handle(phone, text, session);
+
+      case FLOWS.POST_TRIP:
+        return getFlow('postTrip').handle(phone, text, session);
 
       case FLOWS.ACTIVE_RIDE:
         // Allow user to exit location-sharing mode

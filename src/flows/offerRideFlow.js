@@ -193,6 +193,33 @@ async function handleTime(phone, text, session) {
   }
   const departureTime = formatDateForDb(parsed);
   const display = formatDepartureTime(departureTime);
+
+  // If this is a same-route re-offer (seats, vehicle, preference already stored), jump to confirm
+  const s = session.data;
+  if (s.vehicleType && s.totalSeats && s.ridePreference) {
+    sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { departureTime, departureDisplay: display } });
+    const prefStr = s.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
+    const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
+    const vehicleDisplay = s.vehicleName ? `${vehicleLabel} (${s.vehicleName})` : vehicleLabel;
+    const updated = sessionManager.getSession(phone).data;
+    return waClient.sendButtons(phone,
+      `📋 *Ride Summary*\n\n` +
+      `📍 From: ${updated.pickupText}\n` +
+      `🏁 To: ${updated.destText}\n` +
+      `📏 Distance: ~${(updated.distanceKm || 0).toFixed(1)} km\n` +
+      `🕐 Time: ${display}\n` +
+      `💺 Seats: ${updated.totalSeats}\n` +
+      `💰 Price: ₹${updated.pricePerSeat}/seat\n` +
+      `🚗 Vehicle: ${vehicleDisplay}\n` +
+      `🎯 Preference: ${prefStr}\n\n` +
+      'Confirm this ride?',
+      [
+        { id: 'offer_yes', title: '✅ Yes, Post Ride' },
+        { id: 'offer_no',  title: '❌ Cancel' },
+      ]
+    );
+  }
+
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_SEATS, data: { departureTime, departureDisplay: display } });
   await waClient.sendText(phone,
     `✅ Departure: *${display}*\n\n💺 *Total Seats Available:*\n_(Enter a number: 1–6)_`
@@ -346,4 +373,39 @@ async function handleConfirm(phone, text, session) {
   );
 }
 
-module.exports = { start, handle, handleLocation };
+// Called from postTripFlow when driver wants to re-use the same route
+// Skips vehicle name + location steps and jumps straight to time
+async function startWithRoute(phone, user, savedRoute) {
+  if (!user) user = userService.getUserByPhone(phone);
+
+  const mapsService = require('../services/mapsService');
+  const pricePerSeat = mapsService.calculatePrice(savedRoute.distanceKm || 0, savedRoute.vehicleType || 'car');
+
+  sessionManager.setSession(phone, {
+    flow: FLOWS.OFFER_RIDE,
+    step: STEPS.OFFER_ASK_TIME,
+    data: {
+      vehicleName:    savedRoute.vehicleName || null,
+      pickupText:     savedRoute.pickupText,
+      pickupLat:      savedRoute.pickupLat,
+      pickupLng:      savedRoute.pickupLng,
+      destText:       savedRoute.destText,
+      destLat:        savedRoute.destLat,
+      destLng:        savedRoute.destLng,
+      vehicleType:    savedRoute.vehicleType,
+      totalSeats:     savedRoute.totalSeats,
+      ridePreference: savedRoute.ridePreference,
+      distanceKm:     savedRoute.distanceKm || 0,
+      pricePerSeat,
+    },
+  });
+
+  await waClient.sendText(phone,
+    `✅ *Same Route Loaded*\n\n` +
+    `📍 ${savedRoute.pickupText} → ${savedRoute.destText}\n\n` +
+    `🕐 *What time is the departure tomorrow?*\n_(e.g. 9 AM, 8:30 AM)_\n\n` +
+    '_Reply *cancel* to go back._'
+  );
+}
+
+module.exports = { start, startWithRoute, handle, handleLocation };

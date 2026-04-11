@@ -8,6 +8,7 @@ const rideService = require('../services/rideService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const { formatDepartureTime } = require('../utils/formatters');
 const { parseTimeInput, formatDateForDb } = require('../utils/validators');
+const postTripFlow = require('./postTripFlow');
 
 async function start(phone, user) {
   if (!user) user = userService.getUserByPhone(phone);
@@ -188,9 +189,9 @@ async function showRideManageMenu(phone, rideId) {
     `💰 ₹${ride.PricePerSeat}/seat\n\n` +
     'What would you like to do?',
     [
+      { id: 'ride_complete',   title: '✅ Mark Complete' },
       { id: 'ride_reschedule', title: '🗓️ Reschedule' },
-      { id: 'ride_cancel', title: '❌ Cancel Ride' },
-      { id: 'ride_back', title: '← Back' },
+      { id: 'ride_cancel',     title: '❌ Cancel Ride' },
     ]
   );
 }
@@ -202,6 +203,17 @@ async function handleRideManage(phone, text, session) {
   if (['ride_back', 'back', '← back'].includes(t)) {
     const user = userService.getUserByPhone(phone);
     return start(phone, user);
+  }
+
+  if (['ride_complete', '✅ mark complete'].includes(t)) {
+    const ride = rideService.getRideById(managingRideId);
+    const passengers = rideService.getPassengersByRide(managingRideId);
+    rideService.completeRide(managingRideId);
+    sessionManager.clearSession(phone);
+
+    // Trigger post-trip prompts for driver + all passengers
+    await postTripFlow.triggerForDriver(phone, ride, passengers);
+    return;
   }
 
   if (['ride_reschedule', '🗓️ reschedule'].includes(t)) {

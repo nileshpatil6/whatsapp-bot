@@ -62,6 +62,10 @@ function cancelRide(rideId) {
   return getDb().prepare("UPDATE Rides SET Status = 'cancelled' WHERE RideID = ?").run(rideId);
 }
 
+function completeRide(rideId) {
+  return getDb().prepare("UPDATE Rides SET Status = 'completed' WHERE RideID = ?").run(rideId);
+}
+
 function rescheduleRide(rideId, newDepartureTime) {
   return getDb().prepare('UPDATE Rides SET DepartureTime = ? WHERE RideID = ?').run(newDepartureTime, rideId);
 }
@@ -79,5 +83,5 @@ function getPassengersByRide(rideId) {
 module.exports = {
   createRide, getRideById, getActiveRides,
   getRidesByDriver, incrementBookedSeats, updateRideStatus,
-  cancelRide, rescheduleRide, getPassengersByRide,
+  cancelRide, completeRide, rescheduleRide, getPassengersByRide,
 };

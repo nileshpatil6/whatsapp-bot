@@ -10,7 +10,7 @@ function getUserById(userId) {
   return getDb().prepare('SELECT * FROM Users WHERE UserID = ?').get(userId) || null;
 }
 
-function createUser({ phone, name, gender, homeArea, officeLocation, vehicleOwner }) {
+function createUser({ phone, name, gender = 'Not specified', homeArea = null, officeLocation = null, vehicleOwner = 'No' }) {
   const result = getDb().prepare(`
     INSERT INTO Users (Phone, Name, Gender, HomeArea, OfficeLocation, VehicleOwner, IsVerified)
     VALUES (?, ?, ?, ?, ?, ?, 1)

@@ -354,4 +354,25 @@ function trunc(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-module.exports = { start, handle, handleLocation };
+// Called from postTripFlow when passenger wants to search the same pickup again
+async function startWithLocation(phone, user, locationData) {
+  if (!user) user = userService.getUserByPhone(phone);
+
+  const pref = 'all';
+  sessionManager.setSession(phone, {
+    flow: FLOWS.FIND_RIDE,
+    step: STEPS.FIND_BROWSE,
+    data: {
+      ridePreference: pref,
+      userLat: locationData.lat,
+      userLng: locationData.lng,
+      userArea: locationData.name || 'your area',
+      offset: 0,
+    },
+  });
+
+  await waClient.sendText(phone, `📍 Looking for rides near *${locationData.name || 'your area'}*...`);
+  return showRideList(phone, pref, locationData.lat, locationData.lng, locationData.name, 0);
+}
+
+module.exports = { start, startWithLocation, handle, handleLocation };
