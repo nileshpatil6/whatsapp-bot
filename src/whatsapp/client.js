@@ -75,6 +75,43 @@ async function sendList(to, bodyText, buttonTitle, sections) {
   });
 }
 
+// Send a location pin message (bot → user or bot → driver)
+async function sendLocation(to, lat, lng, name, address) {
+  const location = { latitude: lat, longitude: lng };
+  if (name)    location.name    = name;
+  if (address) location.address = address;
+  return post({
+    messaging_product: 'whatsapp',
+    to,
+    type: 'location',
+    location,
+  });
+}
+
+// Request a location from the user via the native WhatsApp "Send Location" button.
+// Falls back to a plain-text prompt if the API doesn't support it.
+async function sendLocationRequest(to, bodyText) {
+  const result = await post({
+    messaging_product: 'whatsapp',
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'location_request_message',
+      body: { text: bodyText },
+      action: { name: 'send_location' },
+    },
+  });
+  if (!result.success) {
+    // Fallback: plain text with instructions
+    return sendText(
+      to,
+      bodyText +
+      '\n\n📎 *How to share:*\nTap the attachment (📎) icon → *Location* → search for your area or tap *Send Your Current Location*.\n\n_You can also type your area name as text._'
+    );
+  }
+  return result;
+}
+
 // Mark a message as read
 async function markRead(messageId) {
   return post({
@@ -84,4 +121,4 @@ async function markRead(messageId) {
   });
 }
 
-module.exports = { sendText, sendButtons, sendList, markRead };
+module.exports = { sendText, sendButtons, sendList, sendLocation, sendLocationRequest, markRead };

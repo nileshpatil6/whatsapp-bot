@@ -55,6 +55,21 @@ async function processPayload(body) {
         }
 
         const from = message.from; // sender's phone number e.g. "919876543210"
+        // --- Handle location message (WhatsApp native location share / live location) ---
+        if (message.type === 'location') {
+          const loc = message.location || {};
+          await flowRouter.routeLocation(from, {
+            lat:     loc.latitude,
+            lng:     loc.longitude,
+            name:    loc.name    || null,
+            address: loc.address || null,
+            isLive:  !!loc.live_period,
+          }).catch((err) => {
+            console.error(`[Webhook] Error routing location from ${from}:`, err);
+          });
+          continue;
+        }
+
         let text = '';
 
         if (message.type === 'text') {

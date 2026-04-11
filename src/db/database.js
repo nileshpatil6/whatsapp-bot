@@ -44,6 +44,7 @@ function initializeDb() {
     CREATE TABLE IF NOT EXISTS Rides (
       RideID         INTEGER PRIMARY KEY AUTOINCREMENT,
       DriverID       INTEGER NOT NULL REFERENCES Users(UserID),
+      VehicleName    TEXT,
       PickupLocation TEXT    NOT NULL,
       PickupLat      REAL    NOT NULL,
       PickupLng      REAL    NOT NULL,
@@ -55,6 +56,7 @@ function initializeDb() {
       BookedSeats    INTEGER NOT NULL DEFAULT 0,
       PricePerSeat   INTEGER NOT NULL,
       VehicleType    TEXT    NOT NULL,
+      DistanceKm     REAL    NOT NULL DEFAULT 0,
       RidePreference TEXT    NOT NULL DEFAULT 'all',
       IsRecurring    INTEGER NOT NULL DEFAULT 0,
       Status         TEXT    NOT NULL DEFAULT 'active',
@@ -87,6 +89,8 @@ function initializeDb() {
     "ALTER TABLE Users ADD COLUMN HasSeenDisclaimer INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE Rides ADD COLUMN RidePreference TEXT NOT NULL DEFAULT 'all'",
     "ALTER TABLE Rides ADD COLUMN IsRecurring INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE Rides ADD COLUMN VehicleName TEXT",
+    "ALTER TABLE Rides ADD COLUMN DistanceKm REAL NOT NULL DEFAULT 0",
     "ALTER TABLE Bookings ADD COLUMN IsRecurring INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE Bookings ADD COLUMN Rating INTEGER",
   ];

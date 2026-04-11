@@ -93,19 +93,24 @@ async function handle(phone, text, session) {
   // 3. Liability notice (auto-send)
   await waClient.sendText(phone, formatLiabilityNotice());
 
-  // 4. Ask about recurring ride
+  // 4. Ask about recurring ride, then transition to ACTIVE_RIDE for location sharing
   sessionManager.replaceSession(phone, {
     phone,
     flow: FLOWS.RECURRING,
     step: STEPS.RECURRING_ASK,
-    data: { bookingId: booking.BookingID, rideId: ride.RideID },
+    data: {
+      bookingId:     booking.BookingID,
+      rideId:        ride.RideID,
+      driverPhone:   driver ? driver.Phone : null,
+      driverName:    driver ? driver.Name  : null,
+    },
   });
 
   await waClient.sendButtons(phone,
     '🔁 *Recurring Ride*\n\nDo you want this to be a *daily recurring ride*?\n_(Mon–Fri at the same time)_',
     [
       { id: 'rec_yes', title: '🔁 Yes, Daily Ride' },
-      { id: 'rec_no', title: '✖️ No, Just Once' },
+      { id: 'rec_no',  title: '✖️ No, Just Once' },
     ]
   );
 
@@ -118,7 +123,7 @@ async function handle(phone, text, session) {
 
 async function handleRecurring(phone, text, session) {
   const t = text.trim().toLowerCase();
-  const { bookingId } = session.data;
+  const { bookingId, driverPhone, driverName } = session.data;
 
   if (['rec_yes', 'yes', '🔁 yes, daily ride'].includes(t)) {
     getDb().prepare('UPDATE Bookings SET IsRecurring = 1 WHERE BookingID = ?').run(bookingId);
@@ -130,9 +135,40 @@ async function handleRecurring(phone, text, session) {
     await waClient.sendText(phone, '✅ Got it! One-time booking confirmed.');
   }
 
-  sessionManager.clearSession(phone);
-  const user = userService.getUserByPhone(phone);
-  return require('./mainMenuFlow').show(phone, user);
+  // Switch to ACTIVE_RIDE — user can share live location with driver through the bot
+  const { FLOWS } = require('../utils/constants');
+  const passenger = userService.getUserByPhone(phone);
+  if (driverPhone) {
+    sessionManager.replaceSession(phone, {
+      phone,
+      flow: FLOWS.ACTIVE_RIDE,
+      step: 'ACTIVE_RIDE_SHARE',
+      data: { driverPhone, driverName, passengerPhone: phone, passengerName: passenger.Name, role: 'passenger' },
+    });
+    await waClient.sendText(phone,
+      '📍 *Location Sharing (Optional)*\n\n' +
+      `To keep your driver *${driverName || 'your driver'}* updated on your location:\n\n` +
+      '• Tap 📎 (attachment) → *Location* in this chat\n' +
+      '• Share your current location or search for your spot\n\n' +
+      'The bot will *automatically forward* your location to the driver. 🛡️\n\n' +
+      'You can share location anytime before or during the ride.\n\n' +
+      '_Reply *menu* to exit location sharing mode._'
+    );
+
+    // Also set driver in ACTIVE_RIDE to receive passenger's location updates
+    if (driverPhone) {
+      sessionManager.replaceSession(driverPhone, {
+        phone: driverPhone,
+        flow: FLOWS.ACTIVE_RIDE,
+        step: 'ACTIVE_RIDE_SHARE',
+        data: { passengerPhone: phone, passengerName: passenger.Name, driverPhone, role: 'driver' },
+      });
+    }
+  } else {
+    sessionManager.clearSession(phone);
+    const user = userService.getUserByPhone(phone);
+    return require('./mainMenuFlow').show(phone, user);
+  }
 }
 
 function getDb() { return require('../db/database').getDb(); }
