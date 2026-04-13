@@ -39,7 +39,7 @@ function getActiveBookingsByUser(userId) {
 // Returns the most recent booking for a user (any status) for route re-use
 function getLastBookingByUser(userId) {
   return getDb().prepare(`
-    SELECT b.*, r.PickupLocation, r.Destination, r.PickupLat, r.PickupLng
+    SELECT b.*, r.PickupLocation, r.Destination, r.PickupLat, r.PickupLng, r.DestLat, r.DestLng
     FROM Bookings b
     JOIN Rides r ON b.RideID = r.RideID
     WHERE b.UserID = ?

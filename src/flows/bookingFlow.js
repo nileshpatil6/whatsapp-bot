@@ -8,7 +8,7 @@ const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const {
   formatBookingConfirmation, formatSafetyInfo,
-  formatLiabilityNotice, formatDriverNotification, formatDepartureTime,
+  formatDriverNotification, formatDepartureTime,
 } = require('../utils/formatters');
 
 async function start(phone, ride, seatsNeeded) {
@@ -98,10 +98,7 @@ async function handle(phone, text, session) {
   // 2. Safety info (auto-send)
   await waClient.sendText(phone, formatSafetyInfo());
 
-  // 3. Liability notice (auto-send)
-  await waClient.sendText(phone, formatLiabilityNotice());
-
-  // 4. Ask about recurring ride, then transition to ACTIVE_RIDE for location sharing
+  // 3. Ask about recurring ride, then transition to ACTIVE_RIDE for location sharing
   sessionManager.replaceSession(phone, {
     phone,
     flow: FLOWS.RECURRING,
