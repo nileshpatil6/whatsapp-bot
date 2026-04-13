@@ -44,6 +44,13 @@ function getRidesByDriver(driverId) {
   `).all(driverId);
 }
 
+// Returns the most recent ride offered by this driver (any status) for route re-use
+function getLastRideByDriver(driverId) {
+  return getDb().prepare(`
+    SELECT * FROM Rides WHERE DriverID = ? ORDER BY CreatedAt DESC LIMIT 1
+  `).get(driverId) || null;
+}
+
 function incrementBookedSeats(rideId, count) {
   const result = getDb().prepare(`
     UPDATE Rides
@@ -82,6 +89,6 @@ function getPassengersByRide(rideId) {
 
 module.exports = {
   createRide, getRideById, getActiveRides,
-  getRidesByDriver, incrementBookedSeats, updateRideStatus,
+  getRidesByDriver, getLastRideByDriver, incrementBookedSeats, updateRideStatus,
   cancelRide, completeRide, rescheduleRide, getPassengersByRide,
 };

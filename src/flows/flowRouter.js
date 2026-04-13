@@ -4,7 +4,7 @@ const waClient = require('../whatsapp/client');
 const sessionManager = require('../state/sessionManager');
 const { FLOWS } = require('../utils/constants');
 const userService = require('../services/userService');
-const { formatHelpText, formatPrivacyPolicy } = require('../utils/formatters');
+const { formatHelpText, formatPrivacyPolicy, formatTermsConditions } = require('../utils/formatters');
 const bookingService = require('../services/bookingService');
 
 function getFlow(name) {
@@ -24,6 +24,7 @@ const RESTART_CMDS  = new Set(['restart', 'reset', '/restart', '/reset']);
 const MENU_CMDS     = new Set(['hi', 'hello', 'start', 'menu', '/menu', 'hii', 'hey', 'home']);
 const HELP_CMDS     = new Set(['help', '/help']);
 const PRIVACY_CMDS  = new Set(['privacy', '/privacy', 'privacy policy']);
+const TERMS_CMDS    = new Set(['terms', '/terms', 't&c', 'terms and conditions']);
 const OFFER_CMDS    = new Set(['offer', '/offer', 'offer ride']);
 const FIND_CMDS     = new Set(['find', '/find', 'find ride', 'search', '/search']);
 const BOOKINGS_CMDS = new Set(['bookings', 'my bookings', '/mybookings', 'my rides', '/myridesr']);
@@ -46,6 +47,11 @@ async function route(phone, text) {
   // --- Global: privacy policy ---
   if (PRIVACY_CMDS.has(norm)) {
     return waClient.sendText(phone, formatPrivacyPolicy());
+  }
+
+  // --- Global: terms & conditions ---
+  if (TERMS_CMDS.has(norm)) {
+    return waClient.sendText(phone, formatTermsConditions());
   }
 
   const user = userService.getUserByPhone(phone);

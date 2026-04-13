@@ -93,6 +93,7 @@ function initializeDb() {
     "ALTER TABLE Rides ADD COLUMN DistanceKm REAL NOT NULL DEFAULT 0",
     "ALTER TABLE Bookings ADD COLUMN IsRecurring INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE Bookings ADD COLUMN Rating INTEGER",
+    "ALTER TABLE Bookings ADD COLUMN VerificationCode TEXT",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }

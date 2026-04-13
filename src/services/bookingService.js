@@ -2,11 +2,11 @@
 
 const { getDb } = require('../db/database');
 
-function createBooking({ rideId, userId, seatsBooked, totalAmount, isRecurring = 0 }) {
+function createBooking({ rideId, userId, seatsBooked, totalAmount, isRecurring = 0, verificationCode = null }) {
   const result = getDb().prepare(`
-    INSERT INTO Bookings (RideID, UserID, SeatsBooked, TotalAmount, IsRecurring)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(rideId, userId, seatsBooked, totalAmount, isRecurring);
+    INSERT INTO Bookings (RideID, UserID, SeatsBooked, TotalAmount, IsRecurring, VerificationCode)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(rideId, userId, seatsBooked, totalAmount, isRecurring, verificationCode);
   return getBookingById(result.lastInsertRowid);
 }
 
@@ -34,6 +34,17 @@ function getActiveBookingsByUser(userId) {
       AND r.DepartureTime > datetime('now')
     ORDER BY r.DepartureTime ASC
   `).all(userId);
+}
+
+// Returns the most recent booking for a user (any status) for route re-use
+function getLastBookingByUser(userId) {
+  return getDb().prepare(`
+    SELECT b.*, r.PickupLocation, r.Destination, r.PickupLat, r.PickupLng
+    FROM Bookings b
+    JOIN Rides r ON b.RideID = r.RideID
+    WHERE b.UserID = ?
+    ORDER BY b.CreatedAt DESC LIMIT 1
+  `).get(userId) || null;
 }
 
 function cancelBooking(bookingId) {
@@ -66,6 +77,6 @@ function cancelBookingsByRide(rideId) {
 }
 
 module.exports = {
-  createBooking, getBookingById, getBookingsByUser,
+  createBooking, getBookingById, getBookingsByUser, getLastBookingByUser,
   getActiveBookingsByUser, cancelBooking, rateBooking, cancelBookingsByRide,
 };

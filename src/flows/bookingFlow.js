@@ -72,11 +72,15 @@ async function handle(phone, text, session) {
     );
   }
 
+  // Generate a 4-digit verification code for boarding confirmation
+  const verificationCode = String(Math.floor(1000 + Math.random() * 9000));
+
   const booking = bookingService.createBooking({
     rideId: ride.RideID,
     userId: passenger.UserID,
     seatsBooked: seats,
     totalAmount: total,
+    verificationCode,
   });
 
   const driver = userService.getUserById(ride.DriverID);
@@ -84,8 +88,12 @@ async function handle(phone, text, session) {
 
   console.log(`[Booking] #${booking.BookingID} by ${passenger.Name} for ride #${ride.RideID}`);
 
-  // 1. Booking confirmation
-  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
+  // 1. Booking confirmation (with verification code)
+  await waClient.sendText(phone,
+    formatBookingConfirmation(booking, ride, driver) +
+    `\n\n🎫 *Ride Code: ${verificationCode}*\n` +
+    '_Share this code with your driver before boarding to confirm you\'re on the right ride._'
+  );
 
   // 2. Safety info (auto-send)
   await waClient.sendText(phone, formatSafetyInfo());
@@ -114,10 +122,13 @@ async function handle(phone, text, session) {
     ]
   );
 
-  // Notify driver (fire and forget)
+  // Notify driver (fire and forget) — include verification code
   if (driver) {
-    waClient.sendText(driver.Phone, formatDriverNotification(booking, updatedRide, passenger))
-      .catch(err => console.error('[Booking] Driver notify failed:', err.message));
+    waClient.sendText(driver.Phone,
+      formatDriverNotification(booking, updatedRide, passenger) +
+      `\n\n🔑 *Passenger Code: ${verificationCode}*\n` +
+      '_Ask the passenger for this code before departure to verify boarding._'
+    ).catch(err => console.error('[Booking] Driver notify failed:', err.message));
   }
 }
 

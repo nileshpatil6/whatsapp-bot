@@ -86,27 +86,24 @@ function toRad(deg) {
 }
 
 // Auto-calculate price per seat based on distance slab and vehicle type
-// Bike slabs:  0-3 km ₹12/km | 3-5 ₹10/km | 5-8 ₹8/km | 8-15 ₹6/km | 15+ ₹5/km
-// Car slabs:   0-3 km ₹18/km | 3-5 ₹15/km | 5-8 ₹12/km | 8-15 ₹8/km | 15+ ₹7/km
-// Auto/other:  flat ₹10/km
+// Bike: 0-3km ₹9/km | 4-6km ₹8/km | 7-10km ₹7/km | 11-20km ₹6/km | 20+km ₹5/km
+// Car:  0-3km ₹16/km | 4-6km ₹13/km | 7-10km ₹10/km | 11-20km ₹8/km | 21-30km ₹6/km | 30+km ₹5/km
 function calculatePrice(distanceKm, vehicleType) {
   const d = distanceKm;
   if (vehicleType === 'bike') {
-    if (d <= 3)  return Math.max(20, Math.round(d * 12));
-    if (d <= 5)  return Math.round(d * 10);
-    if (d <= 8)  return Math.round(d * 8);
-    if (d <= 15) return Math.round(d * 6);
+    if (d <= 3)  return Math.max(18, Math.round(d * 9));
+    if (d <= 6)  return Math.round(d * 8);
+    if (d <= 10) return Math.round(d * 7);
+    if (d <= 20) return Math.round(d * 6);
     return Math.round(d * 5);
   }
-  if (vehicleType === 'car') {
-    if (d <= 3)  return Math.max(40, Math.round(d * 18));
-    if (d <= 5)  return Math.round(d * 15);
-    if (d <= 8)  return Math.round(d * 12);
-    if (d <= 15) return Math.round(d * 8);
-    return Math.round(d * 7);
-  }
-  // auto or other vehicle
-  return Math.max(30, Math.round(d * 10));
+  // car (default for all other vehicle types)
+  if (d <= 3)  return Math.max(32, Math.round(d * 16));
+  if (d <= 6)  return Math.round(d * 13);
+  if (d <= 10) return Math.round(d * 10);
+  if (d <= 20) return Math.round(d * 8);
+  if (d <= 30) return Math.round(d * 6);
+  return Math.round(d * 5);
 }
 
 module.exports = { geocodeAddress, reverseGeocode, getDisplayName, haversineDistance, calculatePrice };

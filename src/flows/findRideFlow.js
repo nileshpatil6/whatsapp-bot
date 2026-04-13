@@ -5,6 +5,7 @@ const sessionManager = require('../state/sessionManager');
 const rideService = require('../services/rideService');
 const mapsService = require('../services/mapsService');
 const userService = require('../services/userService');
+const bookingService = require('../services/bookingService');
 const { FLOWS, STEPS, MAX_PICKUP_RADIUS_KM } = require('../utils/constants');
 const { formatDepartureTime } = require('../utils/formatters');
 
@@ -15,6 +16,29 @@ const PAGE_SIZE = 9; // leave room for optional "Show More" row (max 10 per list
 async function start(phone, user) {
   if (!user) user = userService.getUserByPhone(phone);
 
+  // Check if user has a previous booking — offer to re-use the pickup
+  const lastBooking = bookingService.getLastBookingByUser(user.UserID);
+  if (lastBooking && lastBooking.PickupLat && lastBooking.PickupLng) {
+    sessionManager.setSession(phone, {
+      flow: FLOWS.FIND_RIDE,
+      step: STEPS.FIND_ASK_REPEAT,
+      data: { lastBooking },
+    });
+    return waClient.sendButtons(phone,
+      `🔄 *Previous Pickup Found*\n\n` +
+      `📍 ${lastBooking.PickupLocation} → ${lastBooking.Destination}\n\n` +
+      'Search rides from the same pickup?',
+      [
+        { id: 'frep_yes', title: '✅ Same Pickup' },
+        { id: 'frep_no',  title: '🔍 New Search' },
+      ]
+    );
+  }
+
+  return startFresh(phone, user);
+}
+
+async function startFresh(phone, user) {
   const isFemale = user && user.Gender === 'Female';
 
   if (isFemale) {
@@ -44,6 +68,7 @@ async function start(phone, user) {
 
 async function handle(phone, text, session) {
   switch (session.step) {
+    case STEPS.FIND_ASK_REPEAT:     return handleRepeat(phone, text, session);
     case STEPS.FIND_ASK_PREFERENCE: return handlePreference(phone, text, session);
     case STEPS.FIND_ASK_LOCATION:   return handleLocationText(phone, text, session);
     case STEPS.FIND_BROWSE:         return handleBrowse(phone, text, session);
@@ -62,6 +87,31 @@ async function handleLocation(phone, locationData, session) {
 }
 
 // ─── Step handlers ────────────────────────────────────────────────────────────
+
+async function handleRepeat(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { lastBooking } = session.data;
+  const user = userService.getUserByPhone(phone);
+
+  if (['frep_yes', 'yes', '✅ same pickup'].includes(t)) {
+    const pref = 'all';
+    sessionManager.setSession(phone, {
+      step: STEPS.FIND_BROWSE,
+      data: {
+        ridePreference: pref,
+        userLat: lastBooking.PickupLat,
+        userLng: lastBooking.PickupLng,
+        userArea: lastBooking.PickupLocation,
+        offset: 0,
+      },
+    });
+    await waClient.sendText(phone, `📍 Looking for rides near *${lastBooking.PickupLocation}*...`);
+    return showRideList(phone, pref, lastBooking.PickupLat, lastBooking.PickupLng, lastBooking.PickupLocation, 0);
+  }
+
+  // "New Search"
+  return startFresh(phone, user);
+}
 
 async function askPickupLocation(phone) {
   await waClient.sendLocationRequest(phone,

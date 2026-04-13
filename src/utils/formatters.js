@@ -97,15 +97,13 @@ function formatBookingConfirmation(booking, ride, driver) {
 
 function formatSafetyInfo() {
   return (
-    '🛡️ *Safety Information*\n\n' +
-    'For your safety, please follow these guidelines:\n\n' +
-    '• Share your live location with a trusted contact\n' +
-    '• Inform a friend or family member before starting the ride\n' +
-    '• Verify driver details before boarding\n' +
-    '• Avoid sharing personal information during the ride\n\n' +
-    '🚨 *Emergency Contact:* Dial 100 (Police)\n\n' +
-    '📍 You can also share your ride details with a trusted person.\n\n' +
-    '_Stay safe and have a comfortable journey with Loopz_ 🚗'
+    '🛡️ *Safety & Responsibility*\n\n' +
+    '• Check driver name/contact before ride\n' +
+    '• Share trip details via WhatsApp\n' +
+    '• Use Live Location if needed\n\n' +
+    '🚨 *Emergency:* 100\n\n' +
+    '⚠️ Loopz only connects users. Safety, coordination & payments are your responsibility.\n\n' +
+    '_Safe ride_ 🚗'
   );
 }
 
@@ -176,6 +174,7 @@ function formatHelpText() {
     '• Reply *restart* — Start over\n\n' +
     '📄 *Legal*\n' +
     'Reply *privacy* to read our Privacy Policy.\n' +
+    'Reply *terms* to read our Terms & Conditions.\n' +
     'By using Loopz you agree to our terms. All rides are between users directly.\n\n' +
     'For support, reply here anytime. 🚗'
   );
@@ -211,6 +210,36 @@ function formatPrivacyPolicy() {
   );
 }
 
+function formatTermsConditions() {
+  return (
+    '📋 *Loopz Ride Share — Terms & Conditions*\n\n' +
+    '*1. Nature of Service*\n' +
+    'Loopz is a facilitator only. We do *NOT* provide transport, own vehicles, or employ drivers.\n' +
+    'All ride arrangements are made directly between users.\n\n' +
+    '*2. User Responsibility*\n' +
+    '• Verify ride details before confirming\n' +
+    '• Ensure your own safety during travel\n' +
+    '• Communicate directly with other users\n' +
+    '• Behave respectfully and professionally\n\n' +
+    '*3. Payments*\n' +
+    'Payments are made directly between driver and passenger. Loopz is not responsible for payment disputes.\n\n' +
+    '*4. Safety Disclaimer*\n' +
+    'Loopz does not guarantee ride safety, accuracy of user info, or driver/passenger reliability.\n' +
+    'Verify identity, share trip details with trusted contacts, and use your judgment.\n\n' +
+    '*5. Limitation of Liability*\n' +
+    'Loopz shall NOT be held responsible for accidents, injuries, loss of belongings, misconduct, delays, or cancellations.\n' +
+    'Use of the platform is at your own risk.\n\n' +
+    '*6. User Conduct*\n' +
+    'Do not provide false information, misuse the platform, or harass other users.\n' +
+    'Loopz reserves the right to remove users who violate these terms.\n\n' +
+    '*7. Modifications*\n' +
+    'Loopz may update these Terms at any time. Continued use implies acceptance.\n\n' +
+    '*8. Acceptance*\n' +
+    'By using Loopz, you confirm you have read and agreed to these Terms & Conditions.\n\n' +
+    '_Reply *menu* to go back. 🚗_'
+  );
+}
+
 function formatNoRideAvailable(pickup, dest) {
   return (
     '❌ *No rides available at the moment*\n\n' +
@@ -228,5 +257,6 @@ module.exports = {
   formatDepartureTime, formatRideCard, formatDisclaimer,
   formatMainMenu, formatRideFound, formatBookingConfirmation,
   formatSafetyInfo, formatLiabilityNotice, formatDriverNotification,
-  formatMyBookings, formatHelpText, formatNoRideAvailable, formatPrivacyPolicy,
+  formatMyBookings, formatHelpText, formatNoRideAvailable,
+  formatPrivacyPolicy, formatTermsConditions,
 };
