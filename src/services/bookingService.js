@@ -65,6 +65,22 @@ function cancelBooking(bookingId) {
   return result.changes;
 }
 
+// Verify a boarding code entered by a driver — returns booking + passenger info if valid
+function verifyBoardingCode(code, driverUserId) {
+  return getDb().prepare(`
+    SELECT b.BookingID, b.SeatsBooked,
+           r.PickupLocation, r.Destination, r.DepartureTime,
+           u.Phone AS PassengerPhone, u.Name AS PassengerName
+    FROM Bookings b
+    JOIN Rides   r ON b.RideID  = r.RideID
+    JOIN Users   u ON b.UserID  = u.UserID
+    WHERE b.VerificationCode = ?
+      AND r.DriverID          = ?
+      AND b.Status            = 'confirmed'
+      AND r.Status            IN ('active', 'full')
+  `).get(code, driverUserId) || null;
+}
+
 function rateBooking(bookingId, rating) {
   return getDb().prepare('UPDATE Bookings SET Rating = ? WHERE BookingID = ?').run(rating, bookingId);
 }
@@ -79,4 +95,5 @@ function cancelBookingsByRide(rideId) {
 module.exports = {
   createBooking, getBookingById, getBookingsByUser, getLastBookingByUser,
   getActiveBookingsByUser, cancelBooking, rateBooking, cancelBookingsByRide,
+  verifyBoardingCode,
 };

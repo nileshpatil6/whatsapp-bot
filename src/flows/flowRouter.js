@@ -4,7 +4,7 @@ const waClient = require('../whatsapp/client');
 const sessionManager = require('../state/sessionManager');
 const { FLOWS } = require('../utils/constants');
 const userService = require('../services/userService');
-const { formatHelpText, formatPrivacyPolicy, formatTermsConditions } = require('../utils/formatters');
+const { formatHelpText, formatPrivacyPolicy, formatTermsConditions, formatDepartureTime } = require('../utils/formatters');
 const bookingService = require('../services/bookingService');
 
 function getFlow(name) {
@@ -128,6 +128,10 @@ async function route(phone, text) {
           sessionManager.clearSession(phone);
           return getFlow('mainMenu').show(phone, user);
         }
+        // Driver entering passenger's 4-digit boarding code
+        if (session.data && session.data.role === 'driver' && /^\d{4}$/.test(norm)) {
+          return handleBoardingCode(phone, norm, user);
+        }
         return waClient.sendText(phone,
           '📍 *Location Sharing Mode*\n\n' +
           'Share your location via 📎 → *Location* to forward it to the other party.\n\n' +
@@ -234,6 +238,34 @@ async function handleActiveRideLocation(phone, locationData, session, user) {
     );
   }
   return waClient.sendText(phone, `✅ Location forwarded to *${targetName}*. 🛡️`);
+}
+
+async function handleBoardingCode(phone, code, driver) {
+  const booking = bookingService.verifyBoardingCode(code, driver.UserID);
+
+  if (!booking) {
+    return waClient.sendText(phone,
+      '❌ *Invalid code.*\n\n' +
+      'That code doesn\'t match any passenger on your current ride.\n' +
+      '_Ask the passenger to check their booking confirmation for the correct 4-digit Ride Code._'
+    );
+  }
+
+  // Confirm to driver
+  await waClient.sendText(phone,
+    `✅ *Passenger Confirmed!*\n\n` +
+    `👤 ${booking.PassengerName} is on board.\n` +
+    `💺 ${booking.SeatsBooked} seat(s) | ${booking.PickupLocation} → ${booking.Destination}\n\n` +
+    '_Have a safe ride! 🚗_'
+  );
+
+  // Notify passenger
+  waClient.sendText(booking.PassengerPhone,
+    `✅ *Boarding Confirmed!*\n\n` +
+    `Your driver has verified your code.\n` +
+    `🚗 You\'re on the right ride — enjoy the journey!\n\n` +
+    '_Safe ride! 🛡️_'
+  ).catch(err => console.error('[BoardingCode] Passenger notify failed:', err.message));
 }
 
 async function sendHelp(phone) {
