@@ -65,20 +65,29 @@ function cancelBooking(bookingId) {
   return result.changes;
 }
 
-// Verify a boarding code entered by a driver — returns booking + passenger info if valid
-function verifyBoardingCode(code, driverUserId) {
-  return getDb().prepare(`
+// Verify a boarding code entered by a driver.
+// rideId must be supplied — we only verify against that exact ride.
+// This prevents cross-ride code collisions and NULL-code false positives.
+function verifyBoardingCode(code, driverUserId, rideId) {
+  if (!code || !driverUserId || !rideId) return null;
+
+  const result = getDb().prepare(`
     SELECT b.BookingID, b.SeatsBooked,
-           r.PickupLocation, r.Destination, r.DepartureTime,
+           r.PickupLocation, r.Destination, r.DepartureTime, r.RideID,
            u.Phone AS PassengerPhone, u.Name AS PassengerName
     FROM Bookings b
     JOIN Rides   r ON b.RideID  = r.RideID
     JOIN Users   u ON b.UserID  = u.UserID
-    WHERE b.VerificationCode = ?
-      AND r.DriverID          = ?
-      AND b.Status            = 'confirmed'
-      AND r.Status            IN ('active', 'full')
-  `).get(code, driverUserId) || null;
+    WHERE b.VerificationCode    IS NOT NULL
+      AND b.VerificationCode    != ''
+      AND b.VerificationCode    = ?
+      AND r.RideID              = ?
+      AND r.DriverID            = ?
+      AND b.Status              = 'confirmed'
+      AND r.Status              IN ('active', 'full')
+  `).get(code, rideId, driverUserId);
+
+  return result || null;
 }
 
 function rateBooking(bookingId, rating) {

@@ -130,7 +130,7 @@ async function route(phone, text) {
         }
         // Driver entering passenger's 4-digit boarding code
         if (session.data && session.data.role === 'driver' && /^\d{4}$/.test(norm)) {
-          return handleBoardingCode(phone, norm, user);
+          return handleBoardingCode(phone, norm, user, session.data.rideId);
         }
         return waClient.sendText(phone,
           '📍 *Location Sharing Mode*\n\n' +
@@ -240,13 +240,21 @@ async function handleActiveRideLocation(phone, locationData, session, user) {
   return waClient.sendText(phone, `✅ Location forwarded to *${targetName}*. 🛡️`);
 }
 
-async function handleBoardingCode(phone, code, driver) {
-  const booking = bookingService.verifyBoardingCode(code, driver.UserID);
+async function handleBoardingCode(phone, code, driver, rideId) {
+  // Guard: rideId must be known (set in session when booking was made)
+  if (!rideId) {
+    return waClient.sendText(phone,
+      '❌ Unable to verify — no active ride found in your session.\n' +
+      '_Reply *menu* to go back._'
+    );
+  }
+
+  const booking = bookingService.verifyBoardingCode(code, driver.UserID, rideId);
 
   if (!booking) {
     return waClient.sendText(phone,
       '❌ *Invalid code.*\n\n' +
-      'That code doesn\'t match any passenger on your current ride.\n' +
+      'That code doesn\'t match any passenger on this ride.\n' +
       '_Ask the passenger to check their booking confirmation for the correct 4-digit Ride Code._'
     );
   }

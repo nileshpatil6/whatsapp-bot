@@ -64,15 +64,16 @@ function initializeDb() {
     );
 
     CREATE TABLE IF NOT EXISTS Bookings (
-      BookingID    INTEGER PRIMARY KEY AUTOINCREMENT,
-      RideID       INTEGER NOT NULL REFERENCES Rides(RideID),
-      UserID       INTEGER NOT NULL REFERENCES Users(UserID),
-      SeatsBooked  INTEGER NOT NULL,
-      TotalAmount  INTEGER NOT NULL,
-      IsRecurring  INTEGER NOT NULL DEFAULT 0,
-      Rating       INTEGER,
-      Status       TEXT    NOT NULL DEFAULT 'confirmed',
-      CreatedAt    TEXT    NOT NULL DEFAULT (datetime('now'))
+      BookingID        INTEGER PRIMARY KEY AUTOINCREMENT,
+      RideID           INTEGER NOT NULL REFERENCES Rides(RideID),
+      UserID           INTEGER NOT NULL REFERENCES Users(UserID),
+      SeatsBooked      INTEGER NOT NULL,
+      TotalAmount      INTEGER NOT NULL,
+      IsRecurring      INTEGER NOT NULL DEFAULT 0,
+      Rating           INTEGER,
+      Status           TEXT    NOT NULL DEFAULT 'confirmed',
+      VerificationCode TEXT,
+      CreatedAt        TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_rides_status     ON Rides(Status);

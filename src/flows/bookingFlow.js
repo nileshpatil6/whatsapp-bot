@@ -163,13 +163,20 @@ async function handleRecurring(phone, text, session) {
       '_Reply *menu* to exit location sharing mode._'
     );
 
-    // Also set driver in ACTIVE_RIDE to receive passenger's location updates
+    // Also set driver in ACTIVE_RIDE to receive passenger's location updates + boarding code entry
     if (driverPhone) {
+      const { rideId: activeRideId } = session.data;
       sessionManager.replaceSession(driverPhone, {
         phone: driverPhone,
         flow: FLOWS.ACTIVE_RIDE,
         step: 'ACTIVE_RIDE_SHARE',
-        data: { passengerPhone: phone, passengerName: passenger.Name, driverPhone, role: 'driver' },
+        data: {
+          passengerPhone: phone,
+          passengerName: passenger.Name,
+          driverPhone,
+          role: 'driver',
+          rideId: activeRideId,         // pinned to this specific ride
+        },
       });
     }
   } else {
