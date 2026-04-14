@@ -119,6 +119,25 @@ async function handle(phone, text, session) {
     ]
   );
 
+  // Set driver's ACTIVE_RIDE session NOW — before sending the notification —
+  // so that when the driver receives the message and types the code, their
+  // session is already in the right state to handle it.
+  // (Skip if driver == passenger, e.g. during self-testing on the same phone)
+  if (driver && driver.Phone !== phone) {
+    sessionManager.replaceSession(driver.Phone, {
+      phone: driver.Phone,
+      flow:  FLOWS.ACTIVE_RIDE,
+      step:  'ACTIVE_RIDE_SHARE',
+      data: {
+        passengerPhone: phone,
+        passengerName:  passenger.Name,
+        driverPhone:    driver.Phone,
+        role:           'driver',
+        rideId:         ride.RideID,   // pinned — code must match THIS ride
+      },
+    });
+  }
+
   // Notify driver (fire and forget) — instruct driver to enter code from passenger
   if (driver) {
     waClient.sendText(driver.Phone,
@@ -163,22 +182,8 @@ async function handleRecurring(phone, text, session) {
       '_Reply *menu* to exit location sharing mode._'
     );
 
-    // Also set driver in ACTIVE_RIDE to receive passenger's location updates + boarding code entry
-    if (driverPhone) {
-      const { rideId: activeRideId } = session.data;
-      sessionManager.replaceSession(driverPhone, {
-        phone: driverPhone,
-        flow: FLOWS.ACTIVE_RIDE,
-        step: 'ACTIVE_RIDE_SHARE',
-        data: {
-          passengerPhone: phone,
-          passengerName: passenger.Name,
-          driverPhone,
-          role: 'driver',
-          rideId: activeRideId,         // pinned to this specific ride
-        },
-      });
-    }
+    // Driver's ACTIVE_RIDE session was already set in handle() when the
+    // booking was confirmed — no need to set it again here.
   } else {
     sessionManager.clearSession(phone);
     const user = userService.getUserByPhone(phone);
