@@ -81,14 +81,18 @@ function formatRideFound(ride, driver, index, total) {
 
 function formatBookingConfirmation(booking, ride, driver) {
   const total = booking.TotalAmount === 0 ? 'Free' : `₹${booking.TotalAmount}`;
+  const distStr   = ride.DistanceKm ? `\n📏 Distance: ~${ride.DistanceKm.toFixed(1)} km` : '';
+  const vehicleLabel  = ride.VehicleType ? (ride.VehicleType.charAt(0).toUpperCase() + ride.VehicleType.slice(1)) : 'N/A';
+  const vehicleNumStr = ride.VehicleNumber ? ` (${ride.VehicleNumber})` : '';
   return (
     '✅ *Ride Confirmed!*\n\n' +
     `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
     `📞 Contact: +${driver ? driver.Phone : 'N/A'}\n` +
-    `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
+    `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}${distStr}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats Booked: ${booking.SeatsBooked}\n` +
-    `💰 Total Amount: ${total}\n\n` +
+    `💰 Total Amount: ${total}\n` +
+    `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
     '_Please contact the driver and coordinate pickup._\n' +
     '_Pay directly to driver via UPI or Cash._\n\n' +
     `🎫 Booking ID: #${booking.BookingID}`

@@ -45,6 +45,7 @@ function initializeDb() {
       RideID         INTEGER PRIMARY KEY AUTOINCREMENT,
       DriverID       INTEGER NOT NULL REFERENCES Users(UserID),
       VehicleName    TEXT,
+      VehicleNumber  TEXT,
       PickupLocation TEXT    NOT NULL,
       PickupLat      REAL    NOT NULL,
       PickupLng      REAL    NOT NULL,
@@ -76,6 +77,15 @@ function initializeDb() {
       CreatedAt        TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS Feedback (
+      FeedbackID  INTEGER PRIMARY KEY AUTOINCREMENT,
+      UserID      INTEGER REFERENCES Users(UserID),
+      BookingID   INTEGER REFERENCES Bookings(BookingID),
+      Message     TEXT    NOT NULL,
+      Role        TEXT    NOT NULL DEFAULT 'passenger',
+      CreatedAt   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_rides_status     ON Rides(Status);
     CREATE INDEX IF NOT EXISTS idx_rides_departure  ON Rides(DepartureTime);
     CREATE INDEX IF NOT EXISTS idx_rides_driver     ON Rides(DriverID);
@@ -95,6 +105,7 @@ function initializeDb() {
     "ALTER TABLE Bookings ADD COLUMN IsRecurring INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE Bookings ADD COLUMN Rating INTEGER",
     "ALTER TABLE Bookings ADD COLUMN VerificationCode TEXT",
+    "ALTER TABLE Rides ADD COLUMN VehicleNumber TEXT",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }

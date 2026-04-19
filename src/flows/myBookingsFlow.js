@@ -145,12 +145,44 @@ async function handleBookingCancelConfirm(phone, text, session) {
   const t = text.trim().toLowerCase();
 
   if (['cancel_yes', 'yes', '⚠️ yes, cancel'].includes(t)) {
-    bookingService.cancelBooking(session.data.cancelBookingId);
-    sessionManager.clearSession(phone);
-    return waClient.sendText(phone,
-      `✅ *Booking #${session.data.cancelBookingId} cancelled.*\n\n` +
+    const bookingId = session.data.cancelBookingId;
+
+    // Fetch before cancelling so we have route info for driver notification
+    const fullBooking = bookingService.getBookingById(bookingId);
+    const ride  = fullBooking ? rideService.getRideById(fullBooking.RideID) : null;
+    const driver = ride ? userService.getUserById(ride.DriverID) : null;
+
+    bookingService.cancelBooking(bookingId);
+
+    // Notify driver — fire and forget
+    if (driver && driver.Phone !== phone) {
+      waClient.sendText(driver.Phone,
+        `⚠️ *Booking Cancelled*\n\n` +
+        `A passenger has cancelled their booking on your ride.\n\n` +
+        `🗺️ ${session.data.cancelBookingText}\n` +
+        `🎫 Booking #${bookingId}` +
+        (fullBooking ? `\n💺 ${fullBooking.SeatsBooked} seat(s) now available again.` : '') +
+        `\n\nReply *3* to view your rides.`
+      ).catch(err => console.error('[MyBookings] Driver cancel notify failed:', err.message));
+    }
+
+    // Transition to feedback flow (optional) — session now set to FEEDBACK
+    const { FLOWS: F } = require('../utils/constants');
+    sessionManager.replaceSession(phone, {
+      phone,
+      flow: F.FEEDBACK,
+      step: 'FEEDBACK_AWAIT',
+      data: { bookingId, role: 'passenger' },
+    });
+
+    return waClient.sendButtons(phone,
+      `✅ *Booking #${bookingId} cancelled.*\n\n` +
       `_${session.data.cancelBookingText}_\n\n` +
-      'Reply *Menu* to go back.'
+      '_Would you like to share feedback?_',
+      [
+        { id: 'pf_feedback', title: '💬 Leave Feedback' },
+        { id: 'pf_menu',     title: '📋 Main Menu' },
+      ]
     );
   }
 
@@ -222,7 +254,7 @@ async function handleRideManage(phone, text, session) {
     return waClient.sendText(phone,
       `🗓️ *Reschedule Ride*\n\n` +
       `Current time: *${formatDepartureTime(ride ? ride.DepartureTime : '')}*\n\n` +
-      `Enter the *new departure time:*\n_(e.g. 9 AM, 8:30 AM, tomorrow 9 AM)_`
+      `Enter the *new departure time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
     );
   }
 
@@ -273,12 +305,12 @@ async function handleRideCancelConfirm(phone, text, session) {
     rideService.cancelRide(managingRideId);
     sessionManager.clearSession(phone);
 
-    await waClient.sendText(phone,
+    await waClient.sendButtons(phone,
       `✅ *Ride Cancelled.*\n\n` +
       `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
       `🕐 ${ride ? formatDepartureTime(ride.DepartureTime) : ''}\n\n` +
-      (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...\n\n` : '') +
-      'Reply *Menu* to go back.'
+      (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...` : ''),
+      [{ id: 'pf_menu', title: '📋 Main Menu' }]
     );
 
     // Notify passengers — fire and forget
@@ -310,7 +342,7 @@ async function handleRescheduleTime(phone, text, session) {
   const parsed = parseTimeInput(text);
   if (!parsed) {
     return waClient.sendText(phone,
-      '❌ Couldn\'t understand that time.\n_(e.g. *9 AM*, *8:30 AM*, *tomorrow 9 AM*)_\n\n🗓️ *New Departure Time:*'
+      '❌ Couldn\'t understand that time.\n_(e.g. *09:00*, *17:30*, *tomorrow 08:30*)_\n\n🗓️ *New Departure Time:*'
     );
   }
 
@@ -322,12 +354,12 @@ async function handleRescheduleTime(phone, text, session) {
   rideService.rescheduleRide(managingRideId, newTime);
   sessionManager.clearSession(phone);
 
-  await waClient.sendText(phone,
+  await waClient.sendButtons(phone,
     `✅ *Ride Rescheduled!*\n\n` +
     `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
     `🕐 New time: *${newDisplay}*\n\n` +
-    (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...\n\n` : '') +
-    'Reply *Menu* to go back.'
+    (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...` : ''),
+    [{ id: 'pf_menu', title: '📋 Main Menu' }]
   );
 
   // Notify passengers — fire and forget

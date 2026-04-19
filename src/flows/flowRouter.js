@@ -16,19 +16,21 @@ function getFlow(name) {
     case 'booking':      return require('./bookingFlow');
     case 'myBookings':   return require('./myBookingsFlow');
     case 'postTrip':     return require('./postTripFlow');
+    case 'feedback':     return require('./feedbackFlow');
     default: throw new Error(`Unknown flow: ${name}`);
   }
 }
 
-const RESTART_CMDS  = new Set(['restart', 'reset', '/restart', '/reset']);
-const MENU_CMDS     = new Set(['hi', 'hello', 'start', 'menu', '/menu', 'hii', 'hey', 'home']);
-const HELP_CMDS     = new Set(['help', '/help']);
-const PRIVACY_CMDS  = new Set(['privacy', '/privacy', 'privacy policy']);
-const TERMS_CMDS    = new Set(['terms', '/terms', 't&c', 'terms and conditions']);
-const OFFER_CMDS    = new Set(['offer', '/offer', 'offer ride']);
-const FIND_CMDS     = new Set(['find', '/find', 'find ride', 'search', '/search']);
-const BOOKINGS_CMDS = new Set(['bookings', 'my bookings', '/mybookings', 'my rides', '/myridesr']);
-const CANCEL_CMDS   = new Set(['cancel', '/cancel']);
+const RESTART_CMDS   = new Set(['restart', 'reset', '/restart', '/reset']);
+const MENU_CMDS      = new Set(['hi', 'hello', 'start', 'menu', '/menu', 'hii', 'hey', 'home']);
+const HELP_CMDS      = new Set(['help', '/help']);
+const PRIVACY_CMDS   = new Set(['privacy', '/privacy', 'privacy policy']);
+const TERMS_CMDS     = new Set(['terms', '/terms', 't&c', 'terms and conditions']);
+const OFFER_CMDS     = new Set(['offer', '/offer', 'offer ride']);
+const FIND_CMDS      = new Set(['find', '/find', 'find ride', 'search', '/search']);
+const BOOKINGS_CMDS  = new Set(['bookings', 'my bookings', '/mybookings', 'my rides', '/myridesr']);
+const CANCEL_CMDS    = new Set(['cancel', '/cancel']);
+const FEEDBACK_CMDS  = new Set(['feedback', '/feedback', '💬 leave feedback']);
 
 async function route(phone, text) {
   const norm = text.trim().toLowerCase();
@@ -37,6 +39,14 @@ async function route(phone, text) {
   if (RESTART_CMDS.has(norm)) {
     sessionManager.clearSession(phone);
     return waClient.sendText(phone, '🔄 Session reset. Send *Hi* to start fresh. 🚗');
+  }
+
+  // --- Global: main menu button (from sendButtons CTAs) ---
+  if (norm === 'pf_menu') {
+    sessionManager.clearSession(phone);
+    const u = userService.getUserByPhone(phone);
+    if (!u || !u.IsVerified) return getFlow('registration').start(phone);
+    return getFlow('mainMenu').show(phone, u);
   }
 
   // --- Global: help ---
@@ -83,6 +93,9 @@ async function route(phone, text) {
       sessionManager.clearSession(phone);
       return getFlow('myBookings').start(phone, user);
     }
+    if (FEEDBACK_CMDS.has(norm)) {
+      return getFlow('feedback').start(phone, null, 'passenger');
+    }
   }
 
   // --- No session → route to registration or menu ---
@@ -128,15 +141,24 @@ async function route(phone, text) {
           sessionManager.clearSession(phone);
           return getFlow('mainMenu').show(phone, user);
         }
+        // Feedback button (passenger)
+        if (norm === 'pf_feedback' || FEEDBACK_CMDS.has(norm)) {
+          const bookingId = session.data ? session.data.bookingId : null;
+          const role = session.data ? (session.data.role || 'passenger') : 'passenger';
+          return getFlow('feedback').start(phone, bookingId, role);
+        }
         // Driver entering passenger's 4-digit boarding code
         if (session.data && session.data.role === 'driver' && /^\d{4}$/.test(norm)) {
           return handleBoardingCode(phone, norm, user, session.data.rideId);
         }
-        return waClient.sendText(phone,
+        return waClient.sendButtons(phone,
           '📍 *Location Sharing Mode*\n\n' +
-          'Share your location via 📎 → *Location* to forward it to the other party.\n\n' +
-          '_Reply *menu* to stop and go back to the main menu._'
+          'Share your location via 📎 → *Location* to forward it to the other party.',
+          [{ id: 'pf_menu', title: '📋 Main Menu' }]
         );
+
+      case FLOWS.FEEDBACK:
+        return getFlow('feedback').handle(phone, text, session);
 
       default:
         sessionManager.clearSession(phone);

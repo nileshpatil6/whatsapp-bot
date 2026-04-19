@@ -15,9 +15,13 @@ async function start(phone) {
   });
 
   await waClient.sendText(phone,
-    '👋 *Welcome to Loopz!* 🚗\n\n' +
-    '_Smart ride sharing for daily office commute._\n\n' +
-    "What is your *full name*?"
+    '👋 Welcome to *Loopz* 🚗\n\n' +
+    'A smarter way for employees to commute.\n\n' +
+    '• Save on daily travel costs\n' +
+    '• Share rides with colleagues nearby\n' +
+    '• Earn by offering empty seats\n\n' +
+    'Simple. Safe. Efficient.\n\n' +
+    "Let's get you started 👇\nWhat is your *full name*?"
   );
 }
 

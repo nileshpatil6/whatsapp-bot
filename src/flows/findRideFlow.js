@@ -9,14 +9,13 @@ const bookingService = require('../services/bookingService');
 const { FLOWS, STEPS, MAX_PICKUP_RADIUS_KM, MAX_DEST_RADIUS_KM } = require('../utils/constants');
 const { formatDepartureTime } = require('../utils/formatters');
 
-const PAGE_SIZE = 8; // leave room for "Show All" + optional "Show More" rows (max 10)
+const PAGE_SIZE = 8;
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 async function start(phone, user) {
   if (!user) user = userService.getUserByPhone(phone);
 
-  // Check if user has a previous booking — offer to re-use the full route
   const lastBooking = bookingService.getLastBookingByUser(user.UserID);
   if (lastBooking && lastBooking.PickupLat && lastBooking.PickupLng) {
     sessionManager.setSession(phone, {
@@ -29,8 +28,9 @@ async function start(phone, user) {
       `📍 ${lastBooking.PickupLocation} → ${lastBooking.Destination}\n\n` +
       'Search rides on the same route?',
       [
-        { id: 'frep_yes', title: '✅ Same Route' },
-        { id: 'frep_no',  title: '🔍 New Search' },
+        { id: 'frep_yes',    title: '✅ Same Route' },
+        { id: 'frep_return', title: '🔄 Return Route' },
+        { id: 'frep_no',     title: '🔍 New Search' },
       ]
     );
   }
@@ -121,6 +121,31 @@ async function handleRepeat(phone, text, session) {
     );
   }
 
+  if (['frep_return', '🔄 return route'].includes(t)) {
+    // Swap pickup and destination
+    const pref = 'all';
+    sessionManager.setSession(phone, {
+      step: STEPS.FIND_BROWSE,
+      data: {
+        ridePreference: pref,
+        userLat:  lastBooking.DestLat  || null,
+        userLng:  lastBooking.DestLng  || null,
+        userArea: lastBooking.Destination || null,
+        destLat:  lastBooking.PickupLat,
+        destLng:  lastBooking.PickupLng,
+        destArea: lastBooking.PickupLocation,
+        offset: 0,
+      },
+    });
+    await waClient.sendText(phone,
+      `📍 Searching *${lastBooking.Destination} → ${lastBooking.PickupLocation}*...`
+    );
+    return showRideList(phone, pref,
+      lastBooking.DestLat, lastBooking.DestLng, lastBooking.Destination,
+      lastBooking.PickupLat, lastBooking.PickupLng, lastBooking.PickupLocation, 0
+    );
+  }
+
   return startFresh(phone, user);
 }
 
@@ -163,8 +188,6 @@ async function handlePreference(phone, text, session) {
   return askPickupLocation(phone);
 }
 
-// ── Pickup: WhatsApp location pin ─────────────────────────────────────────────
-
 async function processPickupLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
     return waClient.sendText(phone, '❌ Could not read location coordinates. Please try again.');
@@ -176,8 +199,6 @@ async function processPickupLocation(phone, loc, session) {
   });
   return askDestLocation(phone, displayName);
 }
-
-// ── Pickup: text fallback ─────────────────────────────────────────────────────
 
 async function handlePickupText(phone, text, session) {
   if (text.trim().length < 3) {
@@ -200,8 +221,6 @@ async function handlePickupText(phone, text, session) {
   return askDestLocation(phone, pickupName);
 }
 
-// ── Destination: WhatsApp location pin ───────────────────────────────────────
-
 async function processDestLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
     return waClient.sendText(phone, '❌ Could not read location. Please try again.');
@@ -222,8 +241,6 @@ async function processDestLocation(phone, loc, session) {
   await waClient.sendText(phone, `📍 Searching *${userArea} → ${displayName}*...`);
   return showRideList(phone, pref, userLat, userLng, userArea, loc.lat, loc.lng, displayName, 0);
 }
-
-// ── Destination: text fallback ────────────────────────────────────────────────
 
 async function handleDestText(phone, text, session) {
   if (text.trim().length < 3) {
@@ -260,7 +277,6 @@ async function handleDestText(phone, text, session) {
 async function showRideList(phone, preference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll = false) {
   const allRides = rideService.getActiveRides(preference === 'women_only' ? 'women_only' : null);
 
-  // When showAll is true skip location filtering entirely
   let filtered = allRides;
   if (!showAll && userLat && userLng) {
     filtered = allRides.filter((ride) => {
@@ -312,12 +328,12 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     const available = ride.TotalSeats - ride.BookedSeats;
     const price     = ride.PricePerSeat === 0 ? 'Free' : `₹${ride.PricePerSeat}/seat`;
     const womenTag  = ride.RidePreference === 'women_only' ? ' 👩' : '';
-    const pickDist  = userLat ? ` | ${mapsService.haversineDistance(userLat, userLng, ride.PickupLat, ride.PickupLng).toFixed(1)}km` : '';
+    const distStr   = ride.DistanceKm ? ` | ${ride.DistanceKm.toFixed(1)}km` : '';
     return {
       id:          `ride_${ride.RideID}`,
       title:       trunc(`${ride.PickupLocation} → ${ride.Destination}`, 24),
       description: trunc(
-        `${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${womenTag}${pickDist}`, 72
+        `${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${womenTag}${distStr}`, 72
       ),
     };
   });
@@ -330,7 +346,6 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     });
   }
 
-  // Always include "Browse All" if we're currently showing filtered results
   if (!showAll && filtered.length < allRides.length) {
     rows.push({
       id:          'show_all_rides',
@@ -396,39 +411,27 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
   const available = ride.TotalSeats - ride.BookedSeats;
   const price     = ride.PricePerSeat === 0 ? 'Free' : `₹${ride.PricePerSeat}/seat`;
   const prefLabel = ride.RidePreference === 'women_only' ? '\n👩 *Women Only Ride*' : '';
-  const distNote  = userLat
-    ? `\n📏 Pickup ~${mapsService.haversineDistance(userLat, userLng, ride.PickupLat, ride.PickupLng).toFixed(1)} km from you`
-    : '';
-  const vehicleLabel = ride.VehicleType.charAt(0).toUpperCase() + ride.VehicleType.slice(1);
+  const distNote  = ride.DistanceKm
+    ? `\n📏 Distance: ~${ride.DistanceKm.toFixed(1)} km`
+    : (userLat ? `\n📏 Pickup ~${mapsService.haversineDistance(userLat, userLng, ride.PickupLat, ride.PickupLng).toFixed(1)} km from you` : '');
+  const vehicleLabel  = ride.VehicleType.charAt(0).toUpperCase() + ride.VehicleType.slice(1);
+  const vehicleNumStr = ride.VehicleNumber ? ` (${ride.VehicleNumber})` : '';
 
   sessionManager.setSession(phone, {
     step: STEPS.FIND_RIDE_SELECTED,
     data: { selectedRideId: rideId, maxSeats: available, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll },
   });
 
-  const seatButtons = [];
-  const showSeats = Math.min(available, available <= 2 ? 2 : 3);
-  for (let s = 1; s <= showSeats; s++) {
-    seatButtons.push({ id: `seats_${s}`, title: `💺 ${s} Seat${s > 1 ? 's' : ''}` });
-  }
-  if (available <= 2) {
-    seatButtons.push({ id: 'back_list', title: '← Back to List' });
-  }
-
-  const moreNote = available > 3
-    ? `\n\n_(Reply a number up to ${available} if you need more than 3 seats)_` : '';
-  const backNote = available > 2 ? '\n_Reply *back* to return to ride list_' : '';
-
-  return waClient.sendButtons(phone,
+  return waClient.sendText(phone,
     `🚗 *Ride Details*${prefLabel}\n\n` +
     `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Available: ${available} seat(s)\n` +
-    `💰 Price: ${price}\n` +
-    `🚗 Vehicle: ${vehicleLabel}${distNote}\n\n` +
-    `*How many seats do you need?*${moreNote}${backNote}`,
-    seatButtons
+    `💰 Price: ${price}${distNote}\n` +
+    `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
+    `*How many seats do you need?* (1–${available})\n\n` +
+    `_Reply *back* to return to the ride list._`
   );
 }
 
@@ -445,16 +448,11 @@ async function handleSeatSelect(phone, text, session) {
     return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset || 0);
   }
 
-  let seats;
-  if (t.startsWith('seats_')) {
-    seats = parseInt(t.replace('seats_', ''), 10);
-  } else {
-    seats = parseInt(text.trim(), 10);
-  }
+  const seats = parseInt(text.trim(), 10);
 
   if (isNaN(seats) || seats < 1 || seats > maxSeats) {
     return waClient.sendText(phone,
-      `❌ Please choose between 1 and ${maxSeats} seat(s).\nOr reply *back* to return to the ride list.`
+      `❌ Please enter a number between 1 and ${maxSeats}.\nOr reply *back* to return to the ride list.`
     );
   }
 
@@ -471,7 +469,6 @@ function trunc(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-// Called from postTripFlow when passenger wants to search the same pickup again
 async function startWithLocation(phone, user, locationData) {
   if (!user) user = userService.getUserByPhone(phone);
 
@@ -487,7 +484,6 @@ async function startWithLocation(phone, user, locationData) {
     },
   });
 
-  // Ask for destination (pickup is already known from postTrip data)
   return askDestLocation(phone, locationData.name || 'your area');
 }
 

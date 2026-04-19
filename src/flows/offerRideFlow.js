@@ -14,7 +14,6 @@ const { formatDepartureTime } = require('../utils/formatters');
 async function start(phone, user) {
   if (!user) user = userService.getUserByPhone(phone);
 
-  // Check if this driver has a previous ride — offer to re-use the route
   const lastRide = rideService.getLastRideByDriver(user.UserID);
   if (lastRide) {
     const vehicleLabel = lastRide.VehicleType.charAt(0).toUpperCase() + lastRide.VehicleType.slice(1);
@@ -30,13 +29,13 @@ async function start(phone, user) {
       `🎯 ${lastRide.RidePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All'}\n\n` +
       'Post the same route again?',
       [
-        { id: 'repeat_yes', title: '✅ Same Route' },
-        { id: 'repeat_no',  title: '🆕 New Ride' },
+        { id: 'repeat_yes',    title: '✅ Same Route' },
+        { id: 'repeat_return', title: '🔄 Return Ride' },
+        { id: 'repeat_no',     title: '🆕 New Ride' },
       ]
     );
   }
 
-  // No previous ride — go straight to pickup location
   sessionManager.setSession(phone, { flow: FLOWS.OFFER_RIDE, step: STEPS.OFFER_ASK_PICKUP_LOC, data: {} });
   await askPickupLocation(phone);
 }
@@ -52,6 +51,7 @@ async function handle(phone, text, session) {
     case STEPS.OFFER_ASK_SEATS:        return handleSeats(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE:      return handleVehicle(phone, text, session);
     case STEPS.OFFER_ASK_PREFERENCE:   return handlePreference(phone, text, session);
+    case STEPS.OFFER_ASK_VEHICLE_NUM:  return handleVehicleNum(phone, text, session);
     case STEPS.OFFER_CONFIRM:          return handleConfirm(phone, text, session);
     default: return start(phone);
   }
@@ -66,7 +66,6 @@ async function handleLocation(phone, locationData, session) {
   if (session.step === STEPS.OFFER_ASK_DEST_LOC) {
     return processDestLocation(phone, locationData, session);
   }
-  // Location received at wrong step — give a nudge
   await waClient.sendText(phone, "📍 Got your location! Let's continue — please answer the current question. 😊");
 }
 
@@ -77,7 +76,6 @@ async function handleRepeat(phone, text, session) {
   const { lastRide } = session.data;
 
   if (['repeat_yes', 'yes', '✅ same route'].includes(t)) {
-    // Pre-fill all route + vehicle info from last ride and jump to time
     const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, lastRide.VehicleType || 'car');
     sessionManager.setSession(phone, {
       step: STEPS.OFFER_ASK_TIME,
@@ -92,18 +90,47 @@ async function handleRepeat(phone, text, session) {
         totalSeats:     lastRide.TotalSeats,
         ridePreference: lastRide.RidePreference,
         distanceKm:     lastRide.DistanceKm || 0,
+        vehicleNumber:  lastRide.VehicleNumber || null,
         pricePerSeat,
       },
     });
     return waClient.sendText(phone,
       `✅ *Same Route Loaded*\n\n` +
       `📍 ${lastRide.PickupLocation} → ${lastRide.Destination}\n\n` +
-      `🕐 *What time is the departure?*\n_(e.g. 9 AM, 8:30 AM, tomorrow 9 AM)_\n\n` +
+      `🕐 *What time is the departure?*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_\n\n` +
       '_Reply *cancel* to go back._'
     );
   }
 
-  // "New Ride" — start fresh
+  if (['repeat_return', '🔄 return ride'].includes(t)) {
+    // Swap pickup and destination
+    const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, lastRide.VehicleType || 'car');
+    sessionManager.setSession(phone, {
+      step: STEPS.OFFER_ASK_TIME,
+      data: {
+        pickupText:     lastRide.Destination,
+        pickupLat:      lastRide.DestLat,
+        pickupLng:      lastRide.DestLng,
+        destText:       lastRide.PickupLocation,
+        destLat:        lastRide.PickupLat,
+        destLng:        lastRide.PickupLng,
+        vehicleType:    lastRide.VehicleType,
+        totalSeats:     lastRide.TotalSeats,
+        ridePreference: lastRide.RidePreference,
+        distanceKm:     lastRide.DistanceKm || 0,
+        vehicleNumber:  lastRide.VehicleNumber || null,
+        pricePerSeat,
+      },
+    });
+    return waClient.sendText(phone,
+      `🔄 *Return Ride Loaded*\n\n` +
+      `📍 ${lastRide.Destination} → ${lastRide.PickupLocation}\n\n` +
+      `🕐 *What time is the departure?*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_\n\n` +
+      '_Reply *cancel* to go back._'
+    );
+  }
+
+  // "New Ride"
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_PICKUP_LOC, data: {} });
   await askPickupLocation(phone);
 }
@@ -117,7 +144,6 @@ async function askPickupLocation(phone) {
   );
 }
 
-// WhatsApp location pin received for pickup
 async function processPickupLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
     return waClient.sendText(phone, '❌ Could not read coordinates. Please try sharing the location again.');
@@ -142,7 +168,6 @@ async function processPickupLocation(phone, loc, session) {
   );
 }
 
-// Text fallback for pickup
 async function handlePickupText(phone, text, session) {
   if (!isValidAreaText(text)) {
     return waClient.sendText(phone,
@@ -176,7 +201,6 @@ async function handlePickupText(phone, text, session) {
   );
 }
 
-// WhatsApp location pin received for destination
 async function processDestLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
     return waClient.sendText(phone, '❌ Could not read coordinates. Please try sharing the location again.');
@@ -189,11 +213,10 @@ async function processDestLocation(phone, loc, session) {
   });
 
   await waClient.sendText(phone,
-    `✅ Destination: *${displayName}*\n\n🕐 *Departure Time:*\n_(e.g. 9 AM, 8:30 AM, tomorrow 9 AM)_`
+    `✅ Destination: *${displayName}*\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
   );
 }
 
-// Text fallback for destination
 async function handleDestText(phone, text, session) {
   if (!isValidAreaText(text)) {
     return waClient.sendText(phone,
@@ -215,7 +238,7 @@ async function handleDestText(phone, text, session) {
   });
 
   await waClient.sendText(phone,
-    `✅ Destination: *${text.trim()}*\n\n🕐 *Departure Time:*\n_(e.g. 9 AM, 8:30 AM, tomorrow 9 AM)_`
+    `✅ Destination: *${text.trim()}*\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
   );
 }
 
@@ -223,52 +246,60 @@ async function handleTime(phone, text, session) {
   const parsed = parseTimeInput(text);
   if (!parsed) {
     return waClient.sendText(phone,
-      '❌ Couldn\'t understand that time.\n_(e.g. *9 AM*, *8:30 AM*, *tomorrow 9 AM*)_\n\n🕐 *Departure Time:*'
+      '❌ Couldn\'t understand that time.\n_(e.g. *09:00*, *17:30*, *tomorrow 08:30*)_\n\n🕐 *Departure Time:*'
     );
   }
   const departureTime = formatDateForDb(parsed);
   const display = formatDepartureTime(departureTime);
 
-  // If this is a same-route re-offer (seats, vehicle, preference already stored), jump to confirm
   const s = session.data;
   if (s.vehicleType && s.totalSeats && s.ridePreference) {
-    sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { departureTime, departureDisplay: display } });
-    const prefStr = s.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
-    const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
-    const updated = sessionManager.getSession(phone).data;
-    return waClient.sendButtons(phone,
-      `📋 *Ride Summary*\n\n` +
-      `📍 From: ${updated.pickupText}\n` +
-      `🏁 To: ${updated.destText}\n` +
-      `📏 Distance: ~${(updated.distanceKm || 0).toFixed(1)} km\n` +
-      `🕐 Time: ${display}\n` +
-      `💺 Seats: ${updated.totalSeats}\n` +
-      `💰 Price: ₹${updated.pricePerSeat}/seat\n` +
-      `🚗 Vehicle: ${vehicleLabel}\n` +
-      `🎯 Preference: ${prefStr}\n\n` +
-      'Confirm this ride?',
-      [
-        { id: 'offer_yes', title: '✅ Yes, Post Ride' },
-        { id: 'offer_no',  title: '❌ Cancel' },
-      ]
+    // Repeat path — all route data loaded
+    if (s.vehicleNumber) {
+      // Vehicle number also available — go straight to confirm
+      sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { departureTime, departureDisplay: display } });
+      const updated = sessionManager.getSession(phone).data;
+      const prefStr = updated.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
+      const vehicleLabel = updated.vehicleType.charAt(0).toUpperCase() + updated.vehicleType.slice(1);
+      return waClient.sendButtons(phone,
+        `📋 *Ride Summary*\n\n` +
+        `📍 From: ${updated.pickupText}\n` +
+        `🏁 To: ${updated.destText}\n` +
+        `📏 Distance: ~${(updated.distanceKm || 0).toFixed(1)} km\n` +
+        `🕐 Time: ${display}\n` +
+        `💺 Seats: ${updated.totalSeats}\n` +
+        `💰 Price: ₹${updated.pricePerSeat}/seat\n` +
+        `🚗 Vehicle: ${vehicleLabel} (${updated.vehicleNumber})\n` +
+        `🎯 Preference: ${prefStr}\n\n` +
+        'Confirm this ride?',
+        [
+          { id: 'offer_yes', title: '✅ Yes, Post Ride' },
+          { id: 'offer_no',  title: '❌ Cancel' },
+        ]
+      );
+    }
+    // No vehicle number — ask for it
+    sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { departureTime, departureDisplay: display } });
+    return waClient.sendText(phone,
+      `✅ Departure: *${display}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
     );
   }
 
+  // Normal path — continue step by step
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_SEATS, data: { departureTime, departureDisplay: display } });
   await waClient.sendText(phone,
-    `✅ Departure: *${display}*\n\n💺 *Total Seats Available:*\n_(Enter a number: 1–6)_`
+    `✅ Departure: *${display}*\n\n💺 *How many seats are available?*`
   );
 }
 
 async function handleSeats(phone, text, session) {
   if (!isValidSeats(text)) {
     return waClient.sendText(phone,
-      '❌ Please enter a number between 1 and 6.\n\n💺 *Total Seats Available:*'
+      '❌ Please enter a number between 1 and 6.\n\n💺 *How many seats are available?*'
     );
   }
   const seats = parseInt(text.trim(), 10);
 
-  // 2+ seats must be a car — skip the vehicle question
   if (seats >= 2) {
     sessionManager.setSession(phone, {
       step: STEPS.OFFER_ASK_PREFERENCE,
@@ -283,7 +314,6 @@ async function handleSeats(phone, text, session) {
     );
   }
 
-  // 1 seat — let user choose bike or car
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE, data: { totalSeats: seats } });
   await waClient.sendButtons(phone,
     `✅ Seats: *${seats}*\n\n🚗 *Vehicle Type:*`,
@@ -333,26 +363,43 @@ async function handlePreference(phone, text, session) {
     );
   }
 
-  sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { ridePreference } });
+  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { ridePreference } });
   const s = sessionManager.getSession(phone).data;
 
-  // Auto-calculate price from pickup → destination distance
+  // Calculate price from distance now so it's ready for the summary
   const distanceKm = mapsService.haversineDistance(s.pickupLat, s.pickupLng, s.destLat, s.destLng);
   const pricePerSeat = mapsService.calculatePrice(distanceKm, s.vehicleType);
   sessionManager.setSession(phone, { data: { distanceKm, pricePerSeat } });
 
   const prefStr = ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
+  await waClient.sendText(phone,
+    `✅ Preference: *${prefStr}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
+  );
+}
+
+async function handleVehicleNum(phone, text, session) {
+  const vNum = text.trim().toUpperCase();
+  if (vNum.length < 4 || vNum.length > 15) {
+    return waClient.sendText(phone,
+      '❌ Please enter a valid vehicle number.\n_(e.g. TS09AB1234)_\n\n🔑 *Vehicle Number:*'
+    );
+  }
+
+  sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { vehicleNumber: vNum } });
+  const s = sessionManager.getSession(phone).data;
+
+  const prefStr = s.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
   const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
 
   await waClient.sendButtons(phone,
     `📋 *Ride Summary*\n\n` +
     `📍 From: ${s.pickupText}\n` +
     `🏁 To: ${s.destText}\n` +
-    `📏 Distance: ~${distanceKm.toFixed(1)} km\n` +
+    `📏 Distance: ~${(s.distanceKm || 0).toFixed(1)} km\n` +
     `🕐 Time: ${s.departureDisplay}\n` +
     `💺 Seats: ${s.totalSeats}\n` +
-    `💰 Price: ₹${pricePerSeat}/seat _(auto-calculated)_\n` +
-    `🚗 Vehicle: ${vehicleLabel}\n` +
+    `💰 Price: ₹${s.pricePerSeat}/seat\n` +
+    `🚗 Vehicle: ${vehicleLabel} (${vNum})\n` +
     `🎯 Preference: ${prefStr}\n\n` +
     'Confirm this ride?',
     [
@@ -386,6 +433,7 @@ async function handleConfirm(phone, text, session) {
   const ride = rideService.createRide({
     driverId:       user.UserID,
     vehicleName:    null,
+    vehicleNumber:  s.vehicleNumber || null,
     pickupLocation: s.pickupText,
     pickupLat:      s.pickupLat,
     pickupLng:      s.pickupLng,
@@ -404,28 +452,33 @@ async function handleConfirm(phone, text, session) {
   console.log(`[OfferRide] Ride #${ride.RideID} by ${user.Name}`);
 
   const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
+  const vehicleStr = s.vehicleNumber ? ` (${s.vehicleNumber})` : '';
 
   await waClient.sendText(phone,
     `🎉 *Ride Posted Successfully!*\n\n` +
     `🆔 Ride ID: #${ride.RideID}\n` +
     `📍 ${s.pickupText} → ${s.destText}\n` +
-    `📏 Distance: ~${s.distanceKm.toFixed(1)} km\n` +
+    `📏 Distance: ~${(s.distanceKm || 0).toFixed(1)} km\n` +
     `🕐 ${s.departureDisplay}\n` +
     `💺 ${s.totalSeats} seat(s) | 💰 ₹${s.pricePerSeat}/seat\n` +
-    `🚗 ${vehicleLabel}\n\n` +
+    `🚗 ${vehicleLabel}${vehicleStr}\n\n` +
     '✅ Colleagues can now find and book your ride.\n' +
     "📲 You'll get a WhatsApp notification when someone books!\n\n" +
-    '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your passengers.\n\n' +
-    'Reply *menu* to go back.'
+    '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your passengers.'
+  );
+
+  return waClient.sendButtons(phone,
+    '_What would you like to do next?_',
+    [
+      { id: 'pf_menu', title: '📋 Main Menu' },
+    ]
   );
 }
 
 // Called from postTripFlow when driver wants to re-use the same route
-// Skips vehicle name + location steps and jumps straight to time
 async function startWithRoute(phone, user, savedRoute) {
   if (!user) user = userService.getUserByPhone(phone);
 
-  const mapsService = require('../services/mapsService');
   const pricePerSeat = mapsService.calculatePrice(savedRoute.distanceKm || 0, savedRoute.vehicleType || 'car');
 
   sessionManager.setSession(phone, {
@@ -442,6 +495,7 @@ async function startWithRoute(phone, user, savedRoute) {
       totalSeats:     savedRoute.totalSeats,
       ridePreference: savedRoute.ridePreference,
       distanceKm:     savedRoute.distanceKm || 0,
+      vehicleNumber:  savedRoute.vehicleNumber || null,
       pricePerSeat,
     },
   });
@@ -449,7 +503,7 @@ async function startWithRoute(phone, user, savedRoute) {
   await waClient.sendText(phone,
     `✅ *Same Route Loaded*\n\n` +
     `📍 ${savedRoute.pickupText} → ${savedRoute.destText}\n\n` +
-    `🕐 *What time is the departure tomorrow?*\n_(e.g. 9 AM, 8:30 AM)_\n\n` +
+    `🕐 *What time is the departure tomorrow?*\n_(e.g. 09:00, 08:30)_\n\n` +
     '_Reply *cancel* to go back._'
   );
 }

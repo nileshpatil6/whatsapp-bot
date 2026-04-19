@@ -170,7 +170,7 @@ async function handleRecurring(phone, text, session) {
       phone,
       flow: FLOWS.ACTIVE_RIDE,
       step: 'ACTIVE_RIDE_SHARE',
-      data: { driverPhone, driverName, passengerPhone: phone, passengerName: passenger.Name, role: 'passenger' },
+      data: { driverPhone, driverName, passengerPhone: phone, passengerName: passenger.Name, role: 'passenger', bookingId },
     });
     await waClient.sendText(phone,
       '📍 *Location Sharing (Optional)*\n\n' +
@@ -178,8 +178,14 @@ async function handleRecurring(phone, text, session) {
       '• Tap 📎 (attachment) → *Location* in this chat\n' +
       '• Share your current location or search for your spot\n\n' +
       'The bot will *automatically forward* your location to the driver. 🛡️\n\n' +
-      'You can share location anytime before or during the ride.\n\n' +
-      '_Reply *menu* to exit location sharing mode._'
+      'You can share location anytime before or during the ride.'
+    );
+    await waClient.sendButtons(phone,
+      '🎉 *All set! Enjoy your ride.*\n\n_Share feedback or go back to the main menu._',
+      [
+        { id: 'pf_feedback', title: '💬 Leave Feedback' },
+        { id: 'pf_menu',     title: '📋 Main Menu' },
+      ]
     );
 
     // Driver's ACTIVE_RIDE session was already set in handle() when the
