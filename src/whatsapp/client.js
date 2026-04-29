@@ -1,124 +1,121 @@
 'use strict';
 
-const axios = require('axios');
+// Telegram client — same interface as the old WhatsApp client so all flows work unchanged.
+// Uses the Telegraf bot singleton from src/telegram/bot.js.
 
-function getBaseUrl() {
-  return `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+const { getBot } = require('../telegram/bot');
+
+// ── helpers ────────────────────────────────────────────────────────────────────
+
+// Build a 2-column inline keyboard from a flat button list
+function buildKeyboard(buttons) {
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 2) {
+    const row = [{ text: buttons[i].title, callback_data: buttons[i].id }];
+    if (buttons[i + 1]) {
+      row.push({ text: buttons[i + 1].title, callback_data: buttons[i + 1].id });
+    }
+    rows.push(row);
+  }
+  return rows;
 }
 
-function getHeaders() {
-  return {
-    Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-    'Content-Type': 'application/json',
-  };
+// Escape characters that break Telegram Markdown (MarkdownV1 only needs minimal escaping)
+function safe(text) {
+  return String(text || '');
 }
 
-async function post(payload) {
+async function tgSend(chatId, text, extra = {}) {
   try {
-    const response = await axios.post(getBaseUrl(), payload, { headers: getHeaders() });
-    return { success: true, data: response.data };
+    await getBot().telegram.sendMessage(chatId, safe(text), {
+      parse_mode: 'Markdown',
+      ...extra,
+    });
   } catch (err) {
-    const errData = err.response ? err.response.data : err.message;
-    console.error('[WA Client] API error:', JSON.stringify(errData));
-    return { success: false, error: errData };
+    // If Markdown parse fails, retry as plain text
+    if (err.description && err.description.includes('parse')) {
+      await getBot().telegram.sendMessage(chatId, safe(text), extra).catch(() => {});
+    } else {
+      console.error('[TG Client] sendMessage error:', err.message);
+    }
   }
 }
 
-// Send a plain text message
-async function sendText(to, text) {
-  return post({
-    messaging_product: 'whatsapp',
-    to,
-    type: 'text',
-    text: { body: text },
+// ── Public API (matches old WhatsApp client exactly) ──────────────────────────
+
+// Plain text message — also removes any lingering "Share Location" keyboard
+async function sendText(chatId, text) {
+  return tgSend(chatId, text, {
+    reply_markup: { remove_keyboard: true },
   });
 }
 
-// Send a message with up to 3 quick-reply buttons
-// buttons: [{ id: 'yes', title: 'Yes' }, { id: 'no', title: 'No' }]
-async function sendButtons(to, bodyText, buttons) {
-  const btns = buttons.slice(0, 3).map((b) => ({
-    type: 'reply',
-    reply: { id: b.id, title: b.title },
-  }));
-
-  return post({
-    messaging_product: 'whatsapp',
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: { text: bodyText },
-      action: { buttons: btns },
-    },
+// Message with inline keyboard buttons (up to any count, 2 per row)
+// buttons: [{ id: 'btn_id', title: 'Button Label' }]
+async function sendButtons(chatId, text, buttons) {
+  return tgSend(chatId, text, {
+    reply_markup: { inline_keyboard: buildKeyboard(buttons) },
   });
 }
 
-// Send a list-picker message (up to 10 rows across all sections)
-// sections: [{ title: '...', rows: [{ id, title, description }] }]
-async function sendList(to, bodyText, buttonTitle, sections) {
-  return post({
-    messaging_product: 'whatsapp',
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'list',
-      body: { text: bodyText },
-      action: {
-        button: buttonTitle.slice(0, 20),
-        sections: sections.map((s) => ({
-          title: s.title ? s.title.slice(0, 24) : undefined,
-          rows: s.rows,
-        })),
-      },
-    },
-  });
-}
+// List picker — becomes a rich formatted message + inline keyboard
+// sections: [{ title: 'Section', rows: [{ id, title, description }] }]
+async function sendList(chatId, bodyText, _buttonLabel, sections) {
+  // Build formatted body with numbered items per section
+  let formattedBody = bodyText + '\n';
+  const keyboard = [];
+  let globalIdx = 1;
 
-// Send a location pin message (bot → user or bot → driver)
-async function sendLocation(to, lat, lng, name, address) {
-  const location = { latitude: lat, longitude: lng };
-  if (name)    location.name    = name;
-  if (address) location.address = address;
-  return post({
-    messaging_product: 'whatsapp',
-    to,
-    type: 'location',
-    location,
-  });
-}
-
-// Request a location from the user via the native WhatsApp "Send Location" button.
-// Falls back to a plain-text prompt if the API doesn't support it.
-async function sendLocationRequest(to, bodyText) {
-  const result = await post({
-    messaging_product: 'whatsapp',
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'location_request_message',
-      body: { text: bodyText },
-      action: { name: 'send_location' },
-    },
-  });
-  if (!result.success) {
-    // Fallback: plain text with instructions
-    return sendText(
-      to,
-      bodyText +
-      '\n\n📎 *How to share:*\nTap the attachment (📎) icon → *Location* → search for your area or tap *Send Your Current Location*.\n\n_You can also type your area name as text._'
-    );
+  for (const section of sections) {
+    if (section.title) formattedBody += `\n*${section.title}*\n`;
+    for (const row of section.rows) {
+      const desc = row.description ? `  _${row.description}_` : '';
+      formattedBody += `\n${globalIdx}. *${row.title}*${desc}`;
+      // Button label: number + short title
+      const btnLabel = row.title.length <= 35 ? row.title : row.title.slice(0, 34) + '…';
+      keyboard.push([{ text: `${globalIdx}. ${btnLabel}`, callback_data: row.id.slice(0, 64) }]);
+      globalIdx++;
+    }
   }
-  return result;
-}
 
-// Mark a message as read
-async function markRead(messageId) {
-  return post({
-    messaging_product: 'whatsapp',
-    status: 'read',
-    message_id: messageId,
+  return tgSend(chatId, formattedBody, {
+    reply_markup: { inline_keyboard: keyboard },
   });
 }
 
-module.exports = { sendText, sendButtons, sendList, sendLocation, sendLocationRequest, markRead };
+// Send a map pin (location message)
+async function sendLocation(chatId, lat, lng, name, address) {
+  try {
+    await getBot().telegram.sendLocation(chatId, lat, lng);
+    if (name || address) {
+      const label = [name, address].filter(Boolean).join('\n');
+      await tgSend(chatId, `📍 ${label}`);
+    }
+  } catch (e) {
+    console.error('[TG Client] sendLocation error:', e.message);
+  }
+}
+
+// Show a "Share Location" button at the bottom of the keyboard
+async function sendLocationRequest(chatId, text) {
+  return tgSend(chatId, text, {
+    reply_markup: {
+      keyboard: [[{ text: '📍 Share Location', request_location: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
+}
+
+// Stub — no mark-read concept in Telegram
+async function markRead() {}
+
+async function sendUnsupportedTypeMessage(chatId) {
+  return sendText(chatId, 'Please use text or tap a button to respond. 😊');
+}
+
+module.exports = {
+  sendText, sendButtons, sendList,
+  sendLocation, sendLocationRequest,
+  markRead, sendUnsupportedTypeMessage,
+};
