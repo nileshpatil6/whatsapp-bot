@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const express = require('express');
 const { initializeDb, closeDb } = require('./db/database');
-const webhookRouter = require('./webhook');
+const { initBot } = require('./telegram/bot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -92,9 +92,6 @@ ${statCard(stats.feedback,'Feedback Entries')}
 </div></body></html>`);
 });
 
-// WhatsApp webhook
-app.use('/webhook', webhookRouter);
-
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
@@ -106,21 +103,34 @@ app.use((err, req, res, next) => {
 
 async function start() {
   try {
-    // Initialize database — must complete before accepting connections
     initializeDb();
 
-    const server = app.listen(PORT, () => {
-      console.log(`[Server] ICICI RideShare Bot running on port ${PORT}`);
-      console.log(`[Server] Webhook URL: http://localhost:${PORT}/webhook`);
-    });
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      console.error('[Server] TELEGRAM_BOT_TOKEN is not set in .env');
+      process.exit(1);
+    }
 
-    // Graceful shutdown
-    const shutdown = () => {
+    const bot = await initBot(token);
+
+    if (process.env.TELEGRAM_WEBHOOK_URL) {
+      // Production: Telegram pushes updates to our URL
+      const webhookPath = `/tg/${token.slice(-10)}`;
+      app.use(await bot.createWebhook({ domain: process.env.TELEGRAM_WEBHOOK_URL, path: webhookPath }));
+      console.log(`[Server] Telegram webhook: ${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`);
+      app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (webhook mode)`));
+    } else {
+      // Development: bot polls Telegram — no URL setup needed
+      await bot.launch();
+      console.log('[Server] Loopz Bot running in polling mode 🚀');
+      app.listen(PORT, () => console.log(`[Server] Admin dashboard on port ${PORT}`));
+    }
+
+    const shutdown = async () => {
       console.log('[Server] Shutting down...');
-      server.close(() => {
-        closeDb();
-        process.exit(0);
-      });
+      bot.stop('SIGTERM');
+      closeDb();
+      process.exit(0);
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
