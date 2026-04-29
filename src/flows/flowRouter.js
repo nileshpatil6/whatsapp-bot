@@ -22,13 +22,13 @@ function getFlow(name) {
 }
 
 const RESTART_CMDS   = new Set(['restart', 'reset', '/restart', '/reset']);
-const MENU_CMDS      = new Set(['hi', 'hello', 'start', 'menu', '/menu', 'hii', 'hey', 'home']);
+const MENU_CMDS      = new Set(['hi', 'hello', 'start', '/start', 'menu', '/menu', 'hii', 'hey', 'home']);
 const HELP_CMDS      = new Set(['help', '/help']);
 const PRIVACY_CMDS   = new Set(['privacy', '/privacy', 'privacy policy']);
 const TERMS_CMDS     = new Set(['terms', '/terms', 't&c', 'terms and conditions']);
-const OFFER_CMDS     = new Set(['offer', '/offer', 'offer ride']);
-const FIND_CMDS      = new Set(['find', '/find', 'find ride', 'search', '/search']);
-const BOOKINGS_CMDS  = new Set(['bookings', 'my bookings', '/mybookings', 'my rides', '/myridesr']);
+const OFFER_CMDS     = new Set(['offer', '/offer', 'offer ride', '1']);
+const FIND_CMDS      = new Set(['find', '/find', 'find ride', 'search', '/search', '2']);
+const BOOKINGS_CMDS  = new Set(['bookings', '/bookings', 'my bookings', '/mybookings', 'my rides', '3']);
 const CANCEL_CMDS    = new Set(['cancel', '/cancel']);
 const FEEDBACK_CMDS  = new Set(['feedback', '/feedback', '💬 leave feedback']);
 
