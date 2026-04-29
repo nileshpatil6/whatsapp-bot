@@ -113,16 +113,18 @@ async function start() {
 
     const bot = await initBot(token);
 
+    let pollingMode = false;
+
     if (process.env.TELEGRAM_WEBHOOK_URL) {
       // Production: Telegram pushes updates to our URL
       const webhookPath = `/tg/${token.slice(-10)}`;
-      // Telegraf expects domain without protocol — strip https:// if present
       const domain = process.env.TELEGRAM_WEBHOOK_URL.replace(/^https?:\/\//, '');
       app.use(await bot.createWebhook({ domain, path: webhookPath }));
       console.log(`[Server] Telegram webhook: ${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`);
       app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (webhook mode)`));
     } else {
       // Development: bot polls Telegram — no URL setup needed
+      pollingMode = true;
       await bot.launch();
       console.log('[Server] Loopz Bot running in polling mode 🚀');
       app.listen(PORT, () => console.log(`[Server] Admin dashboard on port ${PORT}`));
@@ -130,7 +132,7 @@ async function start() {
 
     const shutdown = async () => {
       console.log('[Server] Shutting down...');
-      bot.stop('SIGTERM');
+      try { if (pollingMode) bot.stop('SIGTERM'); } catch (_) {}
       closeDb();
       process.exit(0);
     };
