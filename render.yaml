@@ -3,9 +3,9 @@ services:
     name: icici-rideshare-bot
     env: node
     region: singapore  # Closest to Hyderabad
-    plan: starter      # $7/month — required for persistent disk
+    plan: starter      # $7/month -- required for persistent disk
     buildCommand: npm install
-    startCommand: node src/server.js
+    startCommand: node --experimental-sqlite src/server.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 3000
       # All secrets (WHATSAPP_*, GOOGLE_MAPS_*, EMAIL_*) must be added
-      # manually in the Render dashboard → Environment tab
+      # manually in the Render dashboard -> Environment tab
     disk:
       name: sqlite-data
       mountPath: /data
