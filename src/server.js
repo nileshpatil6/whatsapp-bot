@@ -102,12 +102,17 @@ async function start() {
       process.exit(1);
     }
 
-    const bot = await initBot(token);
-
-    // Always register the webhook POST route BEFORE the 404 catch-all
     const webhookPath = `/tg/${token.slice(-10)}`;
+
+    // Register webhook POST route — getBot() is called lazily so bot can init after listen
     app.post(webhookPath, (req, res) => {
-      bot.handleUpdate(req.body, res).catch(e => console.error('[Bot] handleUpdate error:', e.message));
+      try {
+        require('./telegram/bot').getBot()
+          .handleUpdate(req.body, res)
+          .catch(e => console.error('[Bot] handleUpdate error:', e.message));
+      } catch (_) {
+        res.status(503).json({ error: 'Bot initializing, retry shortly' });
+      }
     });
 
     // 404 and error handlers MUST come after all specific routes
@@ -117,22 +122,28 @@ async function start() {
       res.status(500).json({ error: 'Internal server error' });
     });
 
+    // Bind port FIRST — Render's scanner needs to see it before any async API calls
+    await new Promise(resolve => app.listen(PORT, () => {
+      console.log(`[Server] Listening on port ${PORT}`);
+      resolve();
+    }));
+
+    // Now do the Telegram API calls (setMyCommands + setWebhook/launch)
     let pollingMode = false;
+    const bot = await initBot(token);
 
     if (process.env.TELEGRAM_WEBHOOK_URL) {
-      // Production: tell Telegram to push updates to our URL
       const fullUrl = `${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`;
       await bot.telegram.setWebhook(fullUrl);
       console.log(`[Server] Telegram webhook registered: ${fullUrl}`);
     } else {
-      // Development: delete webhook and poll instead
       pollingMode = true;
       await bot.telegram.deleteWebhook();
       await bot.launch();
       console.log('[Server] Loopz Bot running in polling mode 🚀');
     }
 
-    app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (${pollingMode ? 'polling' : 'webhook'} mode)`));
+    console.log(`[Server] Loopz Bot ready (${pollingMode ? 'polling' : 'webhook'} mode)`);
 
     const shutdown = async () => {
       console.log('[Server] Shutting down...');
