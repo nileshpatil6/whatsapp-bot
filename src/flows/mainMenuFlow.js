@@ -13,26 +13,18 @@ async function show(phone, user) {
   });
 
   const name = user ? user.Name : 'there';
-  const bodyText =
-    `Hi 👋 Welcome to *Loopz* 🚗\n` +
-    `Hello, *${name}*!\n\n` +
-    '_Smart ride sharing for daily office commute._\n\n' +
-    '1️⃣  Offer a Ride\n' +
-    '2️⃣  Find a Ride\n' +
-    '3️⃣  My Bookings\n' +
-    '4️⃣  Help\n\n' +
-    '_Reply 1, 2, 3 or 4  —  or tap below_ 👇';
 
-  await waClient.sendList(phone, bodyText, 'Choose Option 🚗', [
-    {
-      title: 'Main Menu',
-      rows: [
-        { id: 'menu_1', title: '1️⃣ Offer a Ride',   description: 'Post your car/bike for others to join' },
-        { id: 'menu_2', title: '2️⃣ Find a Ride',    description: 'Browse all available rides and book' },
-        { id: 'menu_3', title: '3️⃣ My Bookings',    description: 'View, cancel or manage your rides' },
-        { id: 'menu_4', title: '4️⃣ Help',           description: 'Commands, privacy policy & support' },
-      ],
-    },
+  // sendText removes any lingering location keyboard
+  await waClient.sendText(phone,
+    `👋 *Hi ${name}!* Welcome to *Loopz* 🚗\n\n` +
+    `_Smart ride sharing for daily office commute._`
+  );
+
+  return waClient.sendButtons(phone, 'What would you like to do?', [
+    { id: 'menu_1', title: '🚗 Offer a Ride' },
+    { id: 'menu_2', title: '🔍 Find a Ride' },
+    { id: 'menu_3', title: '📋 My Bookings' },
+    { id: 'menu_4', title: '❓ Help' },
   ]);
 }
 

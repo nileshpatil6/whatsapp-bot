@@ -314,10 +314,14 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
 
   if (filtered.length === 0) {
     sessionManager.clearSession(phone);
-    return waClient.sendText(phone,
+    return waClient.sendButtons(phone,
       preference === 'women_only'
-        ? '🚗 No women-only rides available right now.\n\nReply *find* to browse all rides or *menu* to go back.'
-        : '🚗 No rides available right now.\n\nAsk a colleague to post a ride on Loopz!\n\nReply *offer* to post one, or *menu* to go back.'
+        ? '👩 No women-only rides available right now.'
+        : '🚗 No rides available right now.\n\nAsk a colleague to post a ride on Loopz!',
+      [
+        { id: 'menu_1', title: '🚗 Offer a Ride' },
+        { id: 'pf_menu', title: '📋 Main Menu' },
+      ]
     );
   }
 
@@ -360,8 +364,7 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     `${label}\n\n` +
     `*${filtered.length}* ride(s) for *${routeLabel}*` +
     (showAll ? ' *(all routes)*' : '') + `.\n` +
-    `Tap a ride to view details and book.\n\n` +
-    `_Reply *menu* anytime to go back._`;
+    `Tap a ride to view details and book.`;
 
   return waClient.sendList(phone, bodyText, 'Browse Rides 🚗', [{ title: label, rows }]);
 }
@@ -430,8 +433,7 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
     `💺 Available: ${available} seat(s)\n` +
     `💰 Price: ${price}${distNote}\n` +
     `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
-    `*How many seats do you need?* (1–${available})\n\n` +
-    `_Reply *back* to return to the ride list._`
+    `*How many seats do you need?* _(enter 1–${available})_`
   );
 }
 
@@ -459,7 +461,7 @@ async function handleSeatSelect(phone, text, session) {
   const ride = rideService.getRideById(selectedRideId);
   if (!ride || ride.Status !== 'active' || ride.BookedSeats >= ride.TotalSeats) {
     sessionManager.clearSession(phone);
-    return waClient.sendText(phone, '❌ This ride was just taken. Reply *find* to search again.');
+    return waClient.sendButtons(phone, '❌ This ride was just taken.', [{ id: 'menu_2', title: '🔍 Find Another Ride' }]);
   }
 
   return require('./bookingFlow').start(phone, ride, seats);

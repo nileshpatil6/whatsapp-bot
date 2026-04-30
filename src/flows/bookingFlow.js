@@ -67,8 +67,9 @@ async function handle(phone, text, session) {
   const changed = rideService.incrementBookedSeats(ride.RideID, seats);
   if (changed === 0) {
     sessionManager.clearSession(phone);
-    return waClient.sendText(phone,
-      '😔 Sorry, those seats were just taken by someone else.\n\nReply *find* to search for another ride.'
+    return waClient.sendButtons(phone,
+      '😔 Sorry, those seats were just taken by someone else.',
+      [{ id: 'menu_2', title: '🔍 Find Another Ride' }]
     );
   }
 

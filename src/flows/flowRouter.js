@@ -162,12 +162,13 @@ async function route(phone, text) {
 
       default:
         sessionManager.clearSession(phone);
-        return waClient.sendText(phone, 'Send *Hi* to get started. 🚗');
+        return waClient.sendButtons(phone, 'Tap below to get started. 🚗', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
     }
   } catch (err) {
     console.error(`[Router] Error for ${phone}:`, err);
-    await waClient.sendText(phone,
-      '⚠️ Something went wrong. Reply *Menu* to start over or *Restart* to reset.'
+    await waClient.sendButtons(phone,
+      '⚠️ Something went wrong.',
+      [{ id: 'pf_menu', title: '📋 Main Menu' }]
     );
   }
 }
@@ -178,7 +179,7 @@ async function routeLocation(phone, locationData) {
 
   // If user is not registered, nudge them to register
   if (!user || !user.IsVerified) {
-    return waClient.sendText(phone, '📍 Got your location! Please register first. Send *Hi* to start. 👋');
+    return waClient.sendText(phone, '📍 Got your location! Please register first — send *Hi* to start. 👋');
   }
 
   const session = sessionManager.getSession(phone);
@@ -226,9 +227,9 @@ async function routeLocation(phone, locationData) {
   }
 
   // No active booking found
-  return waClient.sendText(phone,
-    '📍 Location received! Share it when prompted during *Offer a Ride* or *Find a Ride*.\n\n' +
-    'Reply *menu* to start. 🚗'
+  return waClient.sendButtons(phone,
+    '📍 Location received! Share it when prompted during *Offer a Ride* or *Find a Ride*.',
+    [{ id: 'pf_menu', title: '📋 Main Menu' }]
   );
 }
 
@@ -246,7 +247,7 @@ async function handleActiveRideLocation(phone, locationData, session, user) {
   }
 
   if (!targetPhone) {
-    return waClient.sendText(phone, '📍 Location noted. Reply *menu* to go back.');
+    return waClient.sendButtons(phone, '📍 Location noted.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
   }
 
   const tag = locationData.isLive ? '📡 *Live Location Update*' : '📍 *Location Shared*';

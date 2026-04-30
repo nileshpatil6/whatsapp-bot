@@ -61,7 +61,6 @@ async function sendButtons(chatId, text, buttons) {
 // List picker — becomes a rich formatted message + inline keyboard
 // sections: [{ title: 'Section', rows: [{ id, title, description }] }]
 async function sendList(chatId, bodyText, _buttonLabel, sections) {
-  // Build formatted body with numbered items per section
   let formattedBody = bodyText + '\n';
   const keyboard = [];
   let globalIdx = 1;
@@ -71,9 +70,9 @@ async function sendList(chatId, bodyText, _buttonLabel, sections) {
     for (const row of section.rows) {
       const desc = row.description ? `  _${row.description}_` : '';
       formattedBody += `\n${globalIdx}. *${row.title}*${desc}`;
-      // Button label: number + short title
-      const btnLabel = row.title.length <= 35 ? row.title : row.title.slice(0, 34) + '…';
-      keyboard.push([{ text: `${globalIdx}. ${btnLabel}`, callback_data: row.id.slice(0, 64) }]);
+      // Button shows only the title — no redundant "N." prefix since body already numbers them
+      const btnLabel = row.title.length <= 40 ? row.title : row.title.slice(0, 39) + '…';
+      keyboard.push([{ text: btnLabel, callback_data: row.id.slice(0, 64) }]);
       globalIdx++;
     }
   }

@@ -30,8 +30,7 @@ async function start(phone, user) {
     sessionManager.clearSession(phone);
     return waClient.sendText(phone,
       '📋 *My Bookings & Rides*\n\n' +
-      'You have no active bookings or offered rides.\n\n' +
-      'Reply *2* to find a ride or *1* to offer one.'
+      'You have no active bookings or offered rides.\n\nUse the menu to find or offer a ride. 🚗'
     );
   }
 
@@ -61,9 +60,8 @@ async function start(phone, user) {
 
   const bodyText =
     '📋 *My Bookings & Rides*\n\n' +
-    (hasBookings ? `✅ ${bookings.length} booking(s) — tap to cancel\n` : '') +
-    (hasRides ? `🚗 ${offeredRides.length} offered ride(s) — tap to manage\n` : '') +
-    '\n_Reply *Menu* to go back._';
+    (hasBookings ? `✅ ${bookings.length} booking(s) — tap to view/cancel\n` : '') +
+    (hasRides ? `🚗 ${offeredRides.length} offered ride(s) — tap to manage\n` : '');
 
   return waClient.sendList(phone, bodyText, 'View Details 📋', sections);
 }
@@ -97,7 +95,7 @@ async function handleSelect(phone, text, session) {
   if (t.startsWith('booking_')) {
     const bookingId = parseInt(t.replace('booking_', ''), 10);
     const booking = session.data.bookings.find(b => b.BookingID === bookingId);
-    if (!booking) return waClient.sendText(phone, '❌ Booking not found. Reply *Menu* to go back.');
+    if (!booking) return waClient.sendButtons(phone, '❌ Booking not found.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
     return askCancelBooking(phone, booking);
   }
 
@@ -114,7 +112,7 @@ async function handleSelect(phone, text, session) {
     return askCancelBooking(phone, bookings[idx - 1]);
   }
 
-  await waClient.sendText(phone, '👆 Tap an item from the list to manage it, or reply *Menu* to go back.');
+  await waClient.sendButtons(phone, '👆 Tap an item from the list to manage it.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
 }
 
 // ─── BOOKING CANCEL ───────────────────────────────────────────────────────────
@@ -162,7 +160,7 @@ async function handleBookingCancelConfirm(phone, text, session) {
         `🗺️ ${session.data.cancelBookingText}\n` +
         `🎫 Booking #${bookingId}` +
         (fullBooking ? `\n💺 ${fullBooking.SeatsBooked} seat(s) now available again.` : '') +
-        `\n\nReply *3* to view your rides.`
+        ``
       ).catch(err => console.error('[MyBookings] Driver cancel notify failed:', err.message));
     }
 
@@ -204,7 +202,7 @@ async function handleBookingCancelConfirm(phone, text, session) {
 async function showRideManageMenu(phone, rideId) {
   const ride = rideService.getRideById(rideId);
   if (!ride || ride.Status !== 'active') {
-    await waClient.sendText(phone, '❌ Ride not found or already cancelled. Reply *Menu* to go back.');
+    await waClient.sendButtons(phone, '❌ Ride not found or already cancelled.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
     return;
   }
 
@@ -320,7 +318,7 @@ async function handleRideCancelConfirm(phone, text, session) {
         `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
         `(${formatDepartureTime(ride.DepartureTime)}) has been *cancelled*.\n\n` +
         `Booking #${p.BookingID} has been cancelled.\n\n` +
-        `Reply *find* to search for another ride. 🚗`
+        `Tap *Find a Ride* in the main menu to search again. 🚗`
       ).catch(err => console.error('[MyBookings] Passenger cancel notify failed:', err.message));
     }
     return;
@@ -370,7 +368,7 @@ async function handleRescheduleTime(phone, text, session) {
       `has been rescheduled by the driver.\n\n` +
       `🕐 New departure time: *${newDisplay}*\n` +
       `🎫 Booking #${p.BookingID} is still *confirmed*.\n\n` +
-      `Reply *3* to view your bookings. 🚗`
+      `Check *My Bookings* for the updated time. 🚗`
     ).catch(err => console.error('[MyBookings] Passenger reschedule notify failed:', err.message));
   }
 }
