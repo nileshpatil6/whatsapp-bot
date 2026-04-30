@@ -118,9 +118,12 @@ async function start() {
     if (process.env.TELEGRAM_WEBHOOK_URL) {
       // Production: Telegram pushes updates to our URL
       const webhookPath = `/tg/${token.slice(-10)}`;
-      const domain = process.env.TELEGRAM_WEBHOOK_URL.replace(/^https?:\/\//, '');
-      app.use(await bot.createWebhook({ domain, path: webhookPath }));
-      console.log(`[Server] Telegram webhook: ${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`);
+      const fullUrl = `${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`;
+      await bot.telegram.setWebhook(fullUrl);
+      app.post(webhookPath, (req, res) => {
+        bot.handleUpdate(req.body, res).catch(e => console.error('[Bot] handleUpdate error:', e.message));
+      });
+      console.log(`[Server] Telegram webhook registered: ${fullUrl}`);
       app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (webhook mode)`));
     } else {
       // Development: bot polls Telegram — no URL setup needed
