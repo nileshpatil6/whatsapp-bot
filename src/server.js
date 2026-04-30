@@ -104,30 +104,33 @@ async function start() {
 
     const bot = await initBot(token);
 
-    let pollingMode = false;
+    // Always register the webhook POST route BEFORE the 404 catch-all
+    const webhookPath = `/tg/${token.slice(-10)}`;
+    app.post(webhookPath, (req, res) => {
+      bot.handleUpdate(req.body, res).catch(e => console.error('[Bot] handleUpdate error:', e.message));
+    });
 
-    if (process.env.TELEGRAM_WEBHOOK_URL) {
-      // Production: Telegram pushes updates to our URL
-      const webhookPath = `/tg/${token.slice(-10)}`;
-      const fullUrl = `${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`;
-      await bot.telegram.setWebhook(fullUrl);
-      app.post(webhookPath, (req, res) => {
-        bot.handleUpdate(req.body, res).catch(e => console.error('[Bot] handleUpdate error:', e.message));
-      });
-      console.log(`[Server] Telegram webhook registered: ${fullUrl}`);
-    } else {
-      // Development: bot polls Telegram — no URL setup needed
-      pollingMode = true;
-      await bot.launch();
-      console.log('[Server] Loopz Bot running in polling mode 🚀');
-    }
-
-    // 404 and error handlers MUST come after all routes (including webhook POST)
+    // 404 and error handlers MUST come after all specific routes
     app.use((req, res) => res.status(404).json({ error: 'Not found' }));
     app.use((err, req, res, next) => {
       console.error('[Server] Unhandled error:', err);
       res.status(500).json({ error: 'Internal server error' });
     });
+
+    let pollingMode = false;
+
+    if (process.env.TELEGRAM_WEBHOOK_URL) {
+      // Production: tell Telegram to push updates to our URL
+      const fullUrl = `${process.env.TELEGRAM_WEBHOOK_URL}${webhookPath}`;
+      await bot.telegram.setWebhook(fullUrl);
+      console.log(`[Server] Telegram webhook registered: ${fullUrl}`);
+    } else {
+      // Development: delete webhook and poll instead
+      pollingMode = true;
+      await bot.telegram.deleteWebhook();
+      await bot.launch();
+      console.log('[Server] Loopz Bot running in polling mode 🚀');
+    }
 
     app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (${pollingMode ? 'polling' : 'webhook'} mode)`));
 
