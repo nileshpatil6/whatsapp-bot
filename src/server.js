@@ -92,15 +92,6 @@ ${statCard(stats.feedback,'Feedback Entries')}
 </div></body></html>`);
 });
 
-// 404 handler
-app.use((req, res) => res.status(404).json({ error: 'Not found' }));
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('[Server] Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
 async function start() {
   try {
     initializeDb();
@@ -124,14 +115,21 @@ async function start() {
         bot.handleUpdate(req.body, res).catch(e => console.error('[Bot] handleUpdate error:', e.message));
       });
       console.log(`[Server] Telegram webhook registered: ${fullUrl}`);
-      app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (webhook mode)`));
     } else {
       // Development: bot polls Telegram — no URL setup needed
       pollingMode = true;
       await bot.launch();
       console.log('[Server] Loopz Bot running in polling mode 🚀');
-      app.listen(PORT, () => console.log(`[Server] Admin dashboard on port ${PORT}`));
     }
+
+    // 404 and error handlers MUST come after all routes (including webhook POST)
+    app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+    app.use((err, req, res, next) => {
+      console.error('[Server] Unhandled error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+
+    app.listen(PORT, () => console.log(`[Server] Loopz Bot running on port ${PORT} (${pollingMode ? 'polling' : 'webhook'} mode)`));
 
     const shutdown = async () => {
       console.log('[Server] Shutting down...');
