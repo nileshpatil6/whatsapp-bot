@@ -206,17 +206,11 @@ async function handlePickupText(phone, text, session) {
       '❌ Please enter a valid area name or share your location.\n_(e.g. *Miyapur Metro*, *Kondapur*)_'
     );
   }
-  await waClient.sendText(phone, '⏳ Looking up pickup location...');
   const coords = await mapsService.geocodeAddress(text);
-  if (!coords) {
-    return waClient.sendText(phone,
-      `❌ Couldn't find "*${text.trim()}*" on the map.\nTry a more specific area name.`
-    );
-  }
   const pickupName = text.trim();
   sessionManager.setSession(phone, {
     step: STEPS.FIND_ASK_DEST_LOC,
-    data: { userLat: coords.lat, userLng: coords.lng, userArea: pickupName },
+    data: { userLat: coords ? coords.lat : 0, userLng: coords ? coords.lng : 0, userArea: pickupName },
   });
   return askDestLocation(phone, pickupName);
 }
@@ -248,13 +242,7 @@ async function handleDestText(phone, text, session) {
       '❌ Please enter a valid destination name.\n_(e.g. *HITEC City*, *Gachibowli*)_'
     );
   }
-  await waClient.sendText(phone, '⏳ Looking up destination...');
   const coords = await mapsService.geocodeAddress(text);
-  if (!coords) {
-    return waClient.sendText(phone,
-      `❌ Couldn't find "*${text.trim()}*" on the map.\nTry a more specific name.`
-    );
-  }
   const { userLat, userLng, userArea, ridePreference } = session.data;
   const pref = ridePreference || 'all';
   const destName = text.trim();
@@ -264,12 +252,12 @@ async function handleDestText(phone, text, session) {
     data: {
       ridePreference: pref,
       userLat, userLng, userArea,
-      destLat: coords.lat, destLng: coords.lng, destArea: destName,
+      destLat: coords ? coords.lat : 0, destLng: coords ? coords.lng : 0, destArea: destName,
       offset: 0,
     },
   });
   await waClient.sendText(phone, `📍 Searching *${userArea} → ${destName}*...`);
-  return showRideList(phone, pref, userLat, userLng, userArea, coords.lat, coords.lng, destName, 0);
+  return showRideList(phone, pref, userLat, userLng, userArea, coords ? coords.lat : 0, coords ? coords.lng : 0, destName, 0);
 }
 
 // ─── Ride list display ────────────────────────────────────────────────────────

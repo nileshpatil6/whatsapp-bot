@@ -174,19 +174,11 @@ async function handlePickupText(phone, text, session) {
       '❌ Please enter a valid area name.\n_(e.g. *Miyapur Metro*, *Kondapur Bus Stop*)_\n\n📍 *Pickup Location:*'
     );
   }
-  await waClient.sendText(phone, '⏳ Looking up location...');
-
   const coords = await mapsService.geocodeAddress(text);
-  if (!coords) {
-    return waClient.sendText(phone,
-      `❌ Couldn't find "*${text.trim()}*" on the map.\nTry a more specific name.\n\n📍 *Pickup Location:*`
-    );
-  }
-
   const pickupText = text.trim();
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_DEST_LOC,
-    data: { pickupText, pickupLat: coords.lat, pickupLng: coords.lng },
+    data: { pickupText, pickupLat: coords ? coords.lat : 0, pickupLng: coords ? coords.lng : 0 },
   });
 
   const user = userService.getUserByPhone(phone);
@@ -223,18 +215,10 @@ async function handleDestText(phone, text, session) {
       '❌ Please enter a valid destination name.\n_(e.g. *Gachibowli*, *HITEC City*)_\n\n🏁 *Destination:*'
     );
   }
-  await waClient.sendText(phone, '⏳ Looking up location...');
-
   const coords = await mapsService.geocodeAddress(text);
-  if (!coords) {
-    return waClient.sendText(phone,
-      `❌ Couldn't find "*${text.trim()}*" on the map.\nTry a more specific name.\n\n🏁 *Destination:*`
-    );
-  }
-
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_TIME,
-    data: { destText: text.trim(), destLat: coords.lat, destLng: coords.lng },
+    data: { destText: text.trim(), destLat: coords ? coords.lat : 0, destLng: coords ? coords.lng : 0 },
   });
 
   await waClient.sendText(phone,

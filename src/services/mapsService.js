@@ -5,6 +5,8 @@ const axios = require('axios');
 // Geocode a text address to { lat, lng, formattedAddress }
 // Always appends Hyderabad, India for accuracy
 async function geocodeAddress(addressText) {
+  if (!process.env.GOOGLE_MAPS_API_KEY) return null;
+
   const query = `${addressText.trim()}, Hyderabad, Telangana, India`;
   const url = 'https://maps.googleapis.com/maps/api/geocode/json';
 
@@ -57,16 +59,18 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
-// Get a short display name from a WhatsApp location message
-// Uses the name/address provided by WhatsApp first; falls back to reverse geocoding
+// Get a short display name from a location message
+// Uses the name/address provided first; falls back to reverse geocoding (only if API key is set)
 async function getDisplayName(lat, lng, waName, waAddress) {
   if (waName && waName.trim()) return waName.trim();
   if (waAddress && waAddress.trim()) {
-    // Take just the first part of the address (before first comma)
     return waAddress.split(',')[0].trim();
   }
-  const geo = await reverseGeocode(lat, lng);
-  return geo ? geo.name : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  if (process.env.GOOGLE_MAPS_API_KEY) {
+    const geo = await reverseGeocode(lat, lng);
+    if (geo) return geo.name;
+  }
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 }
 
 // Haversine formula — returns distance in kilometres between two lat/lng points

@@ -38,8 +38,8 @@ async function initBot(token) {
 
   // Location shared via "Share Location" button or attachment
   bot.on('location', async (ctx) => {
+    const chatId = String(ctx.chat.id);
     try {
-      const chatId = String(ctx.chat.id);
       const { latitude, longitude } = ctx.message.location;
       await routeLocation(chatId, {
         lat:    latitude,
@@ -50,11 +50,17 @@ async function initBot(token) {
       });
     } catch (e) {
       console.error('[Bot] location error:', e.message);
+      try {
+        await require('../whatsapp/client').sendText(chatId,
+          '❌ Error processing your location. Please try typing your area name instead.'
+        );
+      } catch (_) {}
     }
   });
 
-  // Unsupported types (photos, stickers, etc.)
+  // Unsupported types (photos, stickers, etc.) — explicitly skip types handled above
   bot.on('message', async (ctx) => {
+    if (ctx.message?.text || ctx.message?.location) return;
     try {
       const chatId = String(ctx.chat.id);
       await sendUnsupportedTypeMessage(chatId);
