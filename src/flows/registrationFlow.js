@@ -46,12 +46,6 @@ async function handleName(phone, text) {
   await waClient.sendText(phone, formatDisclaimer());
   userService.markDisclaimerSeen(phone);
 
-  await waClient.sendText(phone,
-    `🎉 *You're all set, ${name}!*\n\n` +
-    '_Your name is saved. You can start right away!_\n\n' +
-    '📄 Reply *privacy* anytime to read our Privacy Policy.'
-  );
-
   return require('./mainMenuFlow').show(phone, user);
 }
 

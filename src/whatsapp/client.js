@@ -95,14 +95,10 @@ async function sendLocation(chatId, lat, lng, name, address) {
   }
 }
 
-// Show a "Share Location" button at the bottom of the keyboard
+// Prompt user to type a location name or share via attachment menu
 async function sendLocationRequest(chatId, text) {
-  return tgSend(chatId, text, {
-    reply_markup: {
-      keyboard: [[{ text: '📍 Share Location', request_location: true }]],
-      resize_keyboard: true,
-      one_time_keyboard: true,
-    },
+  return tgSend(chatId, text + '\n\n_💡 To pin a specific place: tap 📎 → Location → search on the map_', {
+    reply_markup: { remove_keyboard: true },
   });
 }
 

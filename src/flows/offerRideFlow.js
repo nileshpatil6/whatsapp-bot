@@ -199,13 +199,19 @@ async function processDestLocation(phone, loc, session) {
   }
 
   const displayName = await mapsService.getDisplayName(loc.lat, loc.lng, loc.name, loc.address);
+  const { pickupLat, pickupLng } = session.data;
+  const distanceKm = (pickupLat && pickupLng)
+    ? mapsService.haversineDistance(pickupLat, pickupLng, loc.lat, loc.lng)
+    : 0;
+
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_TIME,
-    data: { destText: displayName, destLat: loc.lat, destLng: loc.lng },
+    data: { destText: displayName, destLat: loc.lat, destLng: loc.lng, distanceKm },
   });
 
+  const distNote = distanceKm > 0 ? `\n📏 Distance: ~${distanceKm.toFixed(1)} km` : '';
   await waClient.sendText(phone,
-    `✅ Destination: *${displayName}*\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
+    `✅ Destination: *${displayName}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
   );
 }
 
@@ -216,13 +222,21 @@ async function handleDestText(phone, text, session) {
     );
   }
   const coords = await mapsService.geocodeAddress(text);
+  const destLat = coords ? coords.lat : 0;
+  const destLng = coords ? coords.lng : 0;
+  const { pickupLat, pickupLng } = session.data;
+  const distanceKm = (pickupLat && pickupLng && destLat && destLng)
+    ? mapsService.haversineDistance(pickupLat, pickupLng, destLat, destLng)
+    : 0;
+
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_TIME,
-    data: { destText: text.trim(), destLat: coords ? coords.lat : 0, destLng: coords ? coords.lng : 0 },
+    data: { destText: text.trim(), destLat, destLng, distanceKm },
   });
 
+  const distNote = distanceKm > 0 ? `\n📏 Distance: ~${distanceKm.toFixed(1)} km` : '';
   await waClient.sendText(phone,
-    `✅ Destination: *${text.trim()}*\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
+    `✅ Destination: *${text.trim()}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
   );
 }
 
@@ -350,8 +364,12 @@ async function handlePreference(phone, text, session) {
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { ridePreference } });
   const s = sessionManager.getSession(phone).data;
 
-  // Calculate price from distance now so it's ready for the summary
-  const distanceKm = mapsService.haversineDistance(s.pickupLat, s.pickupLng, s.destLat, s.destLng);
+  // Use already-calculated distance if available (from location pins), otherwise compute now
+  const distanceKm = s.distanceKm > 0
+    ? s.distanceKm
+    : (s.pickupLat && s.pickupLng && s.destLat && s.destLng
+        ? mapsService.haversineDistance(s.pickupLat, s.pickupLng, s.destLat, s.destLng)
+        : 0);
   const pricePerSeat = mapsService.calculatePrice(distanceKm, s.vehicleType);
   sessionManager.setSession(phone, { data: { distanceKm, pricePerSeat } });
 
