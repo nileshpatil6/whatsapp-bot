@@ -34,23 +34,19 @@ async function handle(phone, text, session, user) {
   const t = text.trim().toLowerCase();
 
   switch (t) {
-    case '1': case 'menu_1': case 'offer': case 'offer ride':
-    case '1️⃣ offer a ride':
+    case 'menu_1': case 'offer': case 'offer ride':
       return require('./offerRideFlow').start(phone, user);
 
-    case '2': case 'menu_2': case 'find': case 'find ride': case 'search':
-    case '2️⃣ find a ride':
+    case 'menu_2': case 'find': case 'find ride': case 'search':
       return require('./findRideFlow').start(phone, user);
 
-    case '3': case 'menu_3': case 'my bookings': case 'bookings': case 'my rides':
-    case '3️⃣ my bookings':
+    case 'menu_3': case 'my bookings': case 'bookings': case 'my rides':
       return require('./myBookingsFlow').start(phone, user);
 
-    case '4': case 'menu_4': case 'help':
-    case '4️⃣ help':
+    case 'menu_4': case 'help':
       return require('./flowRouter').sendHelp(phone);
 
-    case '5': case 'menu_terms': case 'terms': case 'privacy': case 't&c':
+    case 'menu_terms': case 'terms': case 'privacy': case 't&c':
       return require('./flowRouter').sendTerms(phone);
 
     default:
