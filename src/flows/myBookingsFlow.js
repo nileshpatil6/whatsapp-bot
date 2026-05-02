@@ -26,10 +26,14 @@ async function start(phone, user) {
   const hasBookings = bookings.length > 0;
   const hasRides = offeredRides.length > 0;
 
+  const freshUser = userService.getUserByPhone(phone);
+  const earnings = freshUser ? (freshUser.TotalEarnings || 0) : 0;
+  const earningsLine = `\n💰 *Total Earnings: ₹${Math.round(earnings)}*`;
+
   if (!hasBookings && !hasRides) {
     sessionManager.clearSession(phone);
     return waClient.sendText(phone,
-      '📋 *My Bookings & Rides*\n\n' +
+      `📋 *My Bookings & Rides*${earningsLine}\n\n` +
       'You have no active bookings or offered rides.\n\nUse the menu to find or offer a ride. 🚗'
     );
   }
@@ -57,11 +61,6 @@ async function start(phone, user) {
       })),
     });
   }
-
-  const freshUser = userService.getUserByPhone(phone);
-  const earningsLine = freshUser && freshUser.TotalEarnings > 0
-    ? `\n💰 *Total Earnings: ₹${Math.round(freshUser.TotalEarnings)}*`
-    : '';
 
   const bodyText =
     `📋 *My Bookings & Rides*${earningsLine}\n\n` +
