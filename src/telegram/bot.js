@@ -74,6 +74,7 @@ async function initBot(token) {
     { command: 'find',     description: 'Find a ride' },
     { command: 'bookings', description: 'My bookings & rides' },
     { command: 'help',     description: 'Help' },
+    { command: 'terms',    description: 'Terms & Conditions / Privacy Policy' },
     { command: 'cancel',   description: 'Cancel current action' },
     { command: 'feedback', description: 'Leave feedback' },
   ]).catch(e => console.warn('[Bot] setMyCommands failed:', e.message));
