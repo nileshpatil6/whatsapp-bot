@@ -89,14 +89,19 @@ async function handle(phone, text, session) {
 
   console.log(`[Booking] #${booking.BookingID} by ${passenger.Name} for ride #${ride.RideID}`);
 
-  // 1. Booking confirmation (with verification code)
-  await waClient.sendText(phone,
-    formatBookingConfirmation(booking, ride, driver) +
-    `\n\n🎫 *Ride Code: ${verificationCode}*\n` +
-    '_Share this code with your driver before boarding to confirm you\'re on the right ride._'
+  // 1. Booking confirmation
+  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
+
+  // 2. Security check interstitial — OTP revealed only after confirmation
+  await waClient.sendButtons(phone,
+    `🔐 *Security Check*\n\n` +
+    `Verify the driver is from your organisation before sharing OTP.\n` +
+    `If unsure, do not share.\n\n` +
+    `_Loopz is for internal corporate use only._`,
+    [{ id: `sec_confirm_${booking.BookingID}`, title: '✅ Confirm: loopmate is from my org' }]
   );
 
-  // 2. Safety info (auto-send)
+  // 3. Safety info (auto-send)
   await waClient.sendText(phone, formatSafetyInfo());
 
   // 3. Ask about recurring ride, then transition to ACTIVE_RIDE for location sharing

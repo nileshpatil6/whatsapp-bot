@@ -219,9 +219,17 @@ async function processDestLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
     return waClient.sendText(phone, '❌ Could not read location. Please try again.');
   }
-  const displayName = await mapsService.getDisplayName(loc.lat, loc.lng, loc.name, loc.address);
   const { userLat, userLng, userArea, ridePreference } = session.data;
   const pref = ridePreference || 'all';
+
+  // Reject same pickup & destination
+  if (userLat && userLng && mapsService.haversineDistance(userLat, userLng, loc.lat, loc.lng) < 0.3) {
+    await waClient.sendText(phone,
+      `❌ Destination must be different from your pickup.\n\n📍 Pickup: *${userArea}*\n\nWhere are you going?`
+    );
+    return askDestLocation(phone, userArea);
+  }
+  const displayName = await mapsService.getDisplayName(loc.lat, loc.lng, loc.name, loc.address);
 
   sessionManager.setSession(phone, {
     step: STEPS.FIND_BROWSE,
@@ -242,8 +250,15 @@ async function handleDestText(phone, text, session) {
       '❌ Please enter a valid destination name.\n_(e.g. *HITEC City*, *Gachibowli*)_'
     );
   }
-  const coords = await mapsService.geocodeAddress(text);
   const { userLat, userLng, userArea, ridePreference } = session.data;
+
+  if (text.trim().toLowerCase() === userArea.toLowerCase()) {
+    return waClient.sendText(phone,
+      '❌ Destination must be different from your pickup.\n\n' +
+      `📍 Pickup: *${userArea}*\n\nWhere are you going?`
+    );
+  }
+  const coords = await mapsService.geocodeAddress(text);
   const pref = ridePreference || 'all';
   const destName = text.trim();
 

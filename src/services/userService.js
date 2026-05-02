@@ -24,10 +24,13 @@ function markDisclaimerSeen(phone) {
 }
 
 function updateRating(userId, rating) {
-  // Average existing rating with new one
   getDb().prepare(`
     UPDATE Users SET Rating = ROUND((Rating + ?) / 2.0, 1) WHERE UserID = ?
   `).run(rating, userId);
 }
 
-module.exports = { getUserByPhone, getUserById, createUser, markDisclaimerSeen, updateRating };
+function addEarnings(userId, amount) {
+  getDb().prepare('UPDATE Users SET TotalEarnings = TotalEarnings + ? WHERE UserID = ?').run(amount, userId);
+}
+
+module.exports = { getUserByPhone, getUserById, createUser, markDisclaimerSeen, updateRating, addEarnings };

@@ -58,8 +58,13 @@ async function start(phone, user) {
     });
   }
 
+  const freshUser = userService.getUserByPhone(phone);
+  const earningsLine = freshUser && freshUser.TotalEarnings > 0
+    ? `\n💰 *Total Earnings: ₹${Math.round(freshUser.TotalEarnings)}*`
+    : '';
+
   const bodyText =
-    '📋 *My Bookings & Rides*\n\n' +
+    `📋 *My Bookings & Rides*${earningsLine}\n\n` +
     (hasBookings ? `✅ ${bookings.length} booking(s) — tap to view/cancel\n` : '') +
     (hasRides ? `🚗 ${offeredRides.length} offered ride(s) — tap to manage\n` : '');
 
@@ -238,10 +243,19 @@ async function handleRideManage(phone, text, session) {
   if (['ride_complete', '✅ mark complete'].includes(t)) {
     const ride = rideService.getRideById(managingRideId);
     const passengers = rideService.getPassengersByRide(managingRideId);
+
+    // Credit driver earnings from all confirmed bookings
+    const confirmedBookings = bookingService.getConfirmedBookingsByRide(managingRideId);
+    const earned = confirmedBookings.reduce((sum, b) => sum + (b.TotalAmount || 0), 0);
+    const driverUser = userService.getUserByPhone(phone);
+    if (earned > 0 && driverUser) {
+      userService.addEarnings(driverUser.UserID, earned);
+      console.log(`[Earnings] ₹${earned} credited to driver ${driverUser.Name} (${phone})`);
+    }
+
     rideService.completeRide(managingRideId);
     sessionManager.clearSession(phone);
 
-    // Trigger post-trip prompts for driver + all passengers
     await postTripFlow.triggerForDriver(phone, ride, passengers);
     return;
   }

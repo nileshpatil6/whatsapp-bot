@@ -64,6 +64,19 @@ async function route(phone, text) {
     return waClient.sendText(phone, formatTermsConditions());
   }
 
+  // --- Global: security check confirm — reveal OTP ---
+  if (norm.startsWith('sec_confirm_')) {
+    const bookingId = parseInt(norm.replace('sec_confirm_', ''), 10);
+    const booking = bookingService.getBookingById(bookingId);
+    if (!booking || !booking.VerificationCode) {
+      return waClient.sendText(phone, '❌ Booking not found. Check *My Bookings*.');
+    }
+    return waClient.sendText(phone,
+      `🎫 *Ride Code: ${booking.VerificationCode}*\n\n` +
+      '_Share this code with your driver before boarding._'
+    );
+  }
+
   const user = userService.getUserByPhone(phone);
   const session = sessionManager.getSession(phone);
 
@@ -303,8 +316,12 @@ async function sendHelp(phone) {
   await waClient.sendText(phone, formatHelpText());
 }
 
+async function sendTerms(phone) {
+  await waClient.sendText(phone, formatTermsConditions());
+}
+
 async function sendUnsupportedTypeMessage(phone) {
   await waClient.sendText(phone, 'I can only read text messages. Please type your response. 😊');
 }
 
-module.exports = { route, routeLocation, sendHelp, sendUnsupportedTypeMessage };
+module.exports = { route, routeLocation, sendHelp, sendTerms, sendUnsupportedTypeMessage };

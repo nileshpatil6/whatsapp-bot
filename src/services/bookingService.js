@@ -101,8 +101,14 @@ function cancelBookingsByRide(rideId) {
   ).run(rideId);
 }
 
+function getConfirmedBookingsByRide(rideId) {
+  return getDb().prepare(
+    "SELECT * FROM Bookings WHERE RideID = ? AND Status = 'confirmed'"
+  ).all(rideId);
+}
+
 module.exports = {
   createBooking, getBookingById, getBookingsByUser, getLastBookingByUser,
   getActiveBookingsByUser, cancelBooking, rateBooking, cancelBookingsByRide,
-  verifyBoardingCode,
+  verifyBoardingCode, getConfirmedBookingsByRide,
 };

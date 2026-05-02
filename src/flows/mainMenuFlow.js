@@ -20,11 +20,12 @@ async function show(phone, user) {
     `_Smart ride sharing for daily office commute._`
   );
 
-  return waClient.sendButtons(phone, 'What would you like to do?', [
+  return waClient.sendButtons(phone, '👇 Choose an option:', [
     { id: 'menu_1', title: '🚗 Offer a Ride' },
     { id: 'menu_2', title: '🔍 Find a Ride' },
     { id: 'menu_3', title: '📋 My Bookings' },
     { id: 'menu_4', title: '❓ Help' },
+    { id: 'menu_terms', title: '📜 Terms & Privacy' },
   ]);
 }
 
@@ -48,6 +49,9 @@ async function handle(phone, text, session, user) {
     case '4': case 'menu_4': case 'help':
     case '4️⃣ help':
       return require('./flowRouter').sendHelp(phone);
+
+    case '5': case 'menu_terms': case 'terms': case 'privacy': case 't&c':
+      return require('./flowRouter').sendTerms(phone);
 
     default:
       return show(phone, user);

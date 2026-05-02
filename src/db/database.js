@@ -36,6 +36,7 @@ function initializeDb() {
       OfficeTiming   TEXT,
       VehicleOwner   TEXT    NOT NULL DEFAULT 'No',
       Rating         REAL    NOT NULL DEFAULT 5.0,
+      TotalEarnings  REAL    NOT NULL DEFAULT 0,
       IsVerified     INTEGER NOT NULL DEFAULT 0,
       HasSeenDisclaimer INTEGER NOT NULL DEFAULT 0,
       CreatedAt      TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -106,6 +107,7 @@ function initializeDb() {
     "ALTER TABLE Bookings ADD COLUMN Rating INTEGER",
     "ALTER TABLE Bookings ADD COLUMN VerificationCode TEXT",
     "ALTER TABLE Rides ADD COLUMN VehicleNumber TEXT",
+    "ALTER TABLE Users ADD COLUMN TotalEarnings REAL NOT NULL DEFAULT 0",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }
