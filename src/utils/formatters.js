@@ -103,7 +103,7 @@ function formatSafetyInfo() {
   return (
     '🛡️ *Safety & Responsibility*\n\n' +
     '• Check driver name/contact before ride\n' +
-    '• Share trip details via WhatsApp\n' +
+    '• Share trip details with your ride partner\n' +
     '• Use Live Location if needed\n\n' +
     '🚨 *Emergency:* 100\n\n' +
     '⚠️ Loopz only connects users. Safety, coordination & payments are your responsibility.\n\n' +
@@ -133,8 +133,8 @@ function formatDriverNotification(booking, ride, passenger) {
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Booked: ${ride.BookedSeats}/${ride.TotalSeats} seats\n` +
-    `📞 Passenger contact: +${passenger.Phone}\n\n` +
-    'Reply *3* to view your bookings.'
+    `📞 Passenger contact: ${passenger.ContactPhone ? `+${passenger.ContactPhone}` : '_shared via Telegram_'}\n\n` +
+    'Tap *My Bookings* to manage your rides.'
   );
 }
 
@@ -168,14 +168,13 @@ function formatHelpText() {
     '• Travellers find and join rides\n' +
     '• Payments are made directly to the driver\n\n' +
     '*Commands:*\n' +
-    '• Reply *1* — Offer a ride\n' +
-    '• Reply *2* — Find a ride\n' +
-    '• Reply *3* — My bookings\n' +
-    '• Reply *offer* — Shortcut to offer a ride\n' +
-    '• Reply *find* — Shortcut to find a ride\n' +
-    '• Reply *cancel* — Cancel a booking\n' +
-    '• Reply *menu* — Return to main menu\n' +
-    '• Reply *restart* — Start over\n\n' +
+    '• /offer — Offer a ride\n' +
+    '• /find — Find a ride\n' +
+    '• /bookings — My bookings\n' +
+    '• /cancel — Cancel current action\n' +
+    '• /start or /menu — Return to main menu\n' +
+    '• /terms — Terms & Privacy\n' +
+    '• /feedback — Leave feedback\n\n' +
     '📄 *Legal*\n' +
     'Reply *privacy* to read our Privacy Policy.\n' +
     'Reply *terms* to read our Terms & Conditions.\n' +
@@ -200,12 +199,12 @@ function formatPrivacyPolicy() {
     'Your name and ride details are shared with matched users.\n' +
     'Loopz does *NOT* sell or share your data with third parties for marketing.\n\n' +
     '*5. Data Security*\n' +
-    'We take reasonable steps to protect your data. Since communication happens via WhatsApp, complete security cannot be guaranteed.\n\n' +
+    'We take reasonable steps to protect your data. Since communication happens via Telegram, complete security cannot be guaranteed.\n\n' +
     '*6. User Responsibility*\n' +
     '• Avoid sharing sensitive personal information\n' +
     '• Verify details before sharing contact information\n\n' +
     '*7. Third-Party Platforms*\n' +
-    'Loopz operates via WhatsApp. Use of WhatsApp is subject to Meta Platforms policies.\n\n' +
+    'Loopz operates via Telegram. Use of Telegram is subject to Telegram\'s Terms of Service.\n\n' +
     '*8. Changes to Policy*\n' +
     'This policy may be updated periodically. Continued use of Loopz implies acceptance.\n\n' +
     '*9. Consent*\n' +

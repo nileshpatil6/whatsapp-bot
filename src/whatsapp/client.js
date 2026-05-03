@@ -95,6 +95,17 @@ async function sendLocation(chatId, lat, lng, name, address) {
   }
 }
 
+// Ask user to share their phone number via Telegram contact button or type it
+async function sendContactRequest(chatId, text) {
+  return tgSend(chatId, text, {
+    reply_markup: {
+      keyboard: [[{ text: '📱 Share My Phone Number', request_contact: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
+}
+
 // Prompt user to type a location name or share via attachment menu
 async function sendLocationRequest(chatId, text) {
   return tgSend(chatId, text + '\n\n_💡 To pin a specific place: tap 📎 → Location → search on the map_', {
@@ -111,6 +122,6 @@ async function sendUnsupportedTypeMessage(chatId) {
 
 module.exports = {
   sendText, sendButtons, sendList,
-  sendLocation, sendLocationRequest,
+  sendLocation, sendLocationRequest, sendContactRequest,
   markRead, sendUnsupportedTypeMessage,
 };

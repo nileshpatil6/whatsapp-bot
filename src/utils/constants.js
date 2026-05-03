@@ -18,8 +18,9 @@ const FLOWS = {
 };
 
 const STEPS = {
-  // Registration (1 step)
-  REG_ASK_NAME: 'REG_ASK_NAME',
+  // Registration
+  REG_ASK_NAME:  'REG_ASK_NAME',
+  REG_ASK_PHONE: 'REG_ASK_PHONE',
 
   // Main menu
   MENU_AWAITING: 'MENU_AWAITING',

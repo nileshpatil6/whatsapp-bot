@@ -10,11 +10,11 @@ function getUserById(userId) {
   return getDb().prepare('SELECT * FROM Users WHERE UserID = ?').get(userId) || null;
 }
 
-function createUser({ phone, name, gender = 'Not specified', homeArea = null, officeLocation = null, vehicleOwner = 'No' }) {
+function createUser({ phone, name, contactPhone = null, gender = 'Not specified', homeArea = null, officeLocation = null, vehicleOwner = 'No' }) {
   const result = getDb().prepare(`
-    INSERT INTO Users (Phone, Name, Gender, HomeArea, OfficeLocation, VehicleOwner, IsVerified)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
-  `).run(phone, name, gender, homeArea, officeLocation, vehicleOwner);
+    INSERT INTO Users (Phone, Name, ContactPhone, Gender, HomeArea, OfficeLocation, VehicleOwner, IsVerified)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+  `).run(phone, name, contactPhone, gender, homeArea, officeLocation, vehicleOwner);
 
   return getUserById(result.lastInsertRowid);
 }
@@ -29,8 +29,12 @@ function updateRating(userId, rating) {
   `).run(rating, userId);
 }
 
+function updateContactPhone(phone, contactPhone) {
+  getDb().prepare('UPDATE Users SET ContactPhone = ? WHERE Phone = ?').run(contactPhone, phone);
+}
+
 function addEarnings(userId, amount) {
   getDb().prepare('UPDATE Users SET TotalEarnings = TotalEarnings + ? WHERE UserID = ?').run(amount, userId);
 }
 
-module.exports = { getUserByPhone, getUserById, createUser, markDisclaimerSeen, updateRating, addEarnings };
+module.exports = { getUserByPhone, getUserById, createUser, updateContactPhone, markDisclaimerSeen, updateRating, addEarnings };

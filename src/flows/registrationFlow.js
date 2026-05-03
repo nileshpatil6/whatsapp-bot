@@ -4,7 +4,7 @@ const waClient = require('../whatsapp/client');
 const sessionManager = require('../state/sessionManager');
 const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
-const { isValidName } = require('../utils/validators');
+const { isValidName, isValidPhone } = require('../utils/validators');
 const { formatDisclaimer } = require('../utils/formatters');
 
 async function start(phone) {
@@ -26,11 +26,16 @@ async function start(phone) {
 }
 
 async function handle(phone, text, session) {
-  if (session.step === STEPS.REG_ASK_NAME) return handleName(phone, text);
+  if (session.step === STEPS.REG_ASK_NAME)  return handleName(phone, text, session);
+  if (session.step === STEPS.REG_ASK_PHONE) return handlePhone(phone, text, session);
   return start(phone);
 }
 
-async function handleName(phone, text) {
+async function handleContact(phone, contactPhone, session) {
+  return savePhone(phone, contactPhone, session);
+}
+
+async function handleName(phone, text, session) {
   if (!isValidName(text)) {
     return waClient.sendText(phone,
       '❌ Please enter a valid name (letters only, e.g. *Rahul Sharma*).\n\nWhat is your *full name*?'
@@ -38,10 +43,35 @@ async function handleName(phone, text) {
   }
 
   const name = text.trim();
-  const user = userService.createUser({ phone, name });
+  sessionManager.setSession(phone, {
+    step: STEPS.REG_ASK_PHONE,
+    data: { name },
+  });
+
+  return waClient.sendContactRequest(phone,
+    `✅ Got it, *${name}*!\n\n` +
+    '📱 *What is your phone number?*\n\n' +
+    'Tap *Share My Phone Number* or type it manually.\n' +
+    '_This is shared with your ride partner so they can contact you._'
+  );
+}
+
+async function handlePhone(phone, text, session) {
+  const cleaned = text.trim().replace(/\s+/g, '');
+  if (!isValidPhone(cleaned)) {
+    return waClient.sendContactRequest(phone,
+      '❌ Please enter a valid phone number (10–15 digits).\n\n📱 *Your phone number:*'
+    );
+  }
+  return savePhone(phone, cleaned, session);
+}
+
+async function savePhone(phone, contactPhone, session) {
+  const { name } = session.data;
+  const user = userService.createUser({ phone, name, contactPhone });
 
   sessionManager.clearSession(phone);
-  console.log(`[Registration] ✅ New user: ${name} (${phone})`);
+  console.log(`[Registration] ✅ New user: ${name} (${phone}) contact: ${contactPhone}`);
 
   await waClient.sendText(phone, formatDisclaimer());
   userService.markDisclaimerSeen(phone);
@@ -49,4 +79,4 @@ async function handleName(phone, text) {
   return require('./mainMenuFlow').show(phone, user);
 }
 
-module.exports = { start, handle };
+module.exports = { start, handle, handleContact };

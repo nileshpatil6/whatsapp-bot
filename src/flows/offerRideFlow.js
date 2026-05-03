@@ -465,7 +465,7 @@ async function handleConfirm(phone, text, session) {
     `💺 ${s.totalSeats} seat(s) | 💰 ₹${s.pricePerSeat}/seat\n` +
     `🚗 ${vehicleLabel}${vehicleStr}\n\n` +
     '✅ Colleagues can now find and book your ride.\n' +
-    "📲 You'll get a WhatsApp notification when someone books!\n\n" +
+    "📲 You'll get a Telegram notification when someone books!\n\n" +
     '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your passengers.'
   );
 

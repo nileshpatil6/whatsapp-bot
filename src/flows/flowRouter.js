@@ -312,6 +312,19 @@ async function handleBoardingCode(phone, code, driver, rideId) {
   ).catch(err => console.error('[BoardingCode] Passenger notify failed:', err.message));
 }
 
+async function routeContact(phone, contactPhone) {
+  const session = sessionManager.getSession(phone);
+  if (session && session.flow === FLOWS.REGISTRATION) {
+    return getFlow('registration').handleContact(phone, contactPhone, session);
+  }
+  // Outside registration — update contact phone for existing user
+  const user = userService.getUserByPhone(phone);
+  if (user) {
+    require('../services/userService').updateContactPhone(phone, contactPhone);
+    return waClient.sendText(phone, `✅ Phone number updated to *${contactPhone}*.`);
+  }
+}
+
 async function sendHelp(phone) {
   await waClient.sendText(phone, formatHelpText());
 }
@@ -324,4 +337,4 @@ async function sendUnsupportedTypeMessage(phone) {
   await waClient.sendText(phone, 'I can only read text messages. Please type your response. 😊');
 }
 
-module.exports = { route, routeLocation, sendHelp, sendTerms, sendUnsupportedTypeMessage };
+module.exports = { route, routeLocation, routeContact, sendHelp, sendTerms, sendUnsupportedTypeMessage };

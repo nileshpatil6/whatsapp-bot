@@ -13,7 +13,7 @@ async function initBot(token) {
   bot = new Telegraf(token);
 
   // Lazy-require to avoid circular deps — flows → client → bot
-  const { route, routeLocation, sendUnsupportedTypeMessage } = require('../flows/flowRouter');
+  const { route, routeLocation, routeContact, sendUnsupportedTypeMessage } = require('../flows/flowRouter');
 
   // Plain text messages & bot commands
   bot.on('text', async (ctx) => {
@@ -58,9 +58,20 @@ async function initBot(token) {
     }
   });
 
+  // Contact shared (phone number via Share My Phone Number button)
+  bot.on('contact', async (ctx) => {
+    const chatId = String(ctx.chat.id);
+    try {
+      const phone = ctx.message.contact.phone_number;
+      await routeContact(chatId, phone);
+    } catch (e) {
+      console.error('[Bot] contact error:', e.message);
+    }
+  });
+
   // Unsupported types (photos, stickers, etc.) — explicitly skip types handled above
   bot.on('message', async (ctx) => {
-    if (ctx.message?.text || ctx.message?.location) return;
+    if (ctx.message?.text || ctx.message?.location || ctx.message?.contact) return;
     try {
       const chatId = String(ctx.chat.id);
       await sendUnsupportedTypeMessage(chatId);

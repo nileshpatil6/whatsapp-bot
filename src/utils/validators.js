@@ -103,7 +103,12 @@ function formatDateForDb(date) {
          `${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }
 
+function isValidPhone(text) {
+  const t = text.replace(/[\s\-\+\(\)]/g, '');
+  return /^\d{10,15}$/.test(t);
+}
+
 module.exports = {
-  isValidName, isValidAreaText, isValidSeats, isValidBookingSeats,
+  isValidName, isValidPhone, isValidAreaText, isValidSeats, isValidBookingSeats,
   isValidPrice, isValidRating, parseTimeInput, formatDateForDb,
 };
