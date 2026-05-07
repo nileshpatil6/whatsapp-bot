@@ -87,7 +87,7 @@ function formatBookingConfirmation(booking, ride, driver) {
   return (
     '✅ *Ride Confirmed!*\n\n' +
     `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
-    `📞 Contact: +${driver ? driver.Phone : 'N/A'}\n` +
+    `📞 Contact: ${driver && driver.ContactPhone ? `+${driver.ContactPhone}` : '_via Telegram_'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}${distStr}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats Booked: ${booking.SeatsBooked}\n` +

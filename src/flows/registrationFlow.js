@@ -5,7 +5,6 @@ const sessionManager = require('../state/sessionManager');
 const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const { isValidName, isValidPhone } = require('../utils/validators');
-const { formatDisclaimer } = require('../utils/formatters');
 
 async function start(phone) {
   sessionManager.setSession(phone, {
@@ -15,13 +14,13 @@ async function start(phone) {
   });
 
   await waClient.sendText(phone,
-    '👋 Welcome to *Loopz* 🚗\n\n' +
-    'A smarter way for employees to commute.\n\n' +
-    '• Save on daily travel costs\n' +
-    '• Share rides with colleagues nearby\n' +
+    '👋 Welcome to *Loopz* 🚗\n' +
+    '_Smart ride sharing for daily office commute._\n\n' +
+    '• Save on travel costs\n' +
+    '• Share rides with colleagues\n' +
     '• Earn by offering empty seats\n\n' +
-    'Simple. Safe. Efficient.\n\n' +
-    "Let's get you started 👇\nWhat is your *full name*?"
+    '⚠️ _Loopz is independent and not affiliated with your employer. All rides are between users at their own responsibility._\n\n' +
+    'What is your *full name*?'
   );
 }
 
@@ -49,10 +48,8 @@ async function handleName(phone, text, session) {
   });
 
   return waClient.sendContactRequest(phone,
-    `✅ Got it, *${name}*!\n\n` +
-    '📱 *What is your phone number?*\n\n' +
-    'Tap *Share My Phone Number* or type it manually.\n' +
-    '_This is shared with your ride partner so they can contact you._'
+    `📱 *Your phone number, ${name}?*\n` +
+    '_Shared with ride partners for coordination._'
   );
 }
 
@@ -73,9 +70,7 @@ async function savePhone(phone, contactPhone, session) {
   sessionManager.clearSession(phone);
   console.log(`[Registration] ✅ New user: ${name} (${phone}) contact: ${contactPhone}`);
 
-  await waClient.sendText(phone, formatDisclaimer());
   userService.markDisclaimerSeen(phone);
-
   return require('./mainMenuFlow').show(phone, user);
 }
 
