@@ -10,11 +10,9 @@ function formatDepartureTime(isoString) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-  let hours = date.getHours();
+  const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12 || 12;
-  const timeStr = `${hours}:${minutes} ${ampm}`;
+  const timeStr = `${hours}:${minutes}`;
 
   if (isToday) return `Today ${timeStr}`;
   if (isTomorrow) return `Tomorrow ${timeStr}`;

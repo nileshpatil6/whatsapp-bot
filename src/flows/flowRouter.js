@@ -4,8 +4,9 @@ const waClient = require('../whatsapp/client');
 const sessionManager = require('../state/sessionManager');
 const { FLOWS } = require('../utils/constants');
 const userService = require('../services/userService');
-const { formatHelpText, formatPrivacyPolicy, formatTermsConditions, formatDepartureTime } = require('../utils/formatters');
+const { formatHelpText, formatPrivacyPolicy, formatTermsConditions, formatBookingConfirmation, formatSafetyInfo } = require('../utils/formatters');
 const bookingService = require('../services/bookingService');
+const rideService = require('../services/rideService');
 
 function getFlow(name) {
   switch (name) {
@@ -64,16 +65,35 @@ async function route(phone, text) {
     return waClient.sendText(phone, formatTermsConditions());
   }
 
-  // --- Global: security check confirm — reveal OTP ---
+  // --- Global: security check confirm — reveal OTP then full booking details ---
   if (norm.startsWith('sec_confirm_')) {
     const bookingId = parseInt(norm.replace('sec_confirm_', ''), 10);
     const booking = bookingService.getBookingById(bookingId);
     if (!booking || !booking.VerificationCode) {
       return waClient.sendText(phone, '❌ Booking not found. Check *My Bookings*.');
     }
-    return waClient.sendText(phone,
-      `🎫 *Ride Code: ${booking.VerificationCode}*\n\n` +
-      '_Share this code with your driver before boarding._'
+
+    const ride   = rideService.getRideById(booking.RideID);
+    const driver = ride ? userService.getUserById(ride.DriverID) : null;
+
+    // 3. OTP
+    await waClient.sendText(phone,
+      `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your driver before boarding._`
+    );
+
+    // 4. Full booking details
+    await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
+
+    // 5. Safety info
+    await waClient.sendText(phone, formatSafetyInfo());
+
+    // 6. Recurring ride question (session is already RECURRING)
+    return waClient.sendButtons(phone,
+      '🔁 *Recurring Ride?*\n\nMake this a *daily ride* Mon–Fri at the same time?',
+      [
+        { id: 'rec_yes', title: '🔁 Yes, Daily Ride' },
+        { id: 'rec_no',  title: '✖️ No, Just Once' },
+      ]
     );
   }
 

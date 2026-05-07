@@ -112,9 +112,6 @@ async function handleRepeat(phone, text, session) {
         offset: 0,
       },
     });
-    await waClient.sendText(phone,
-      `📍 Searching *${lastBooking.PickupLocation} → ${lastBooking.Destination}*...`
-    );
     return showRideList(phone, pref,
       lastBooking.PickupLat, lastBooking.PickupLng, lastBooking.PickupLocation,
       lastBooking.DestLat, lastBooking.DestLng, lastBooking.Destination, 0
@@ -137,9 +134,6 @@ async function handleRepeat(phone, text, session) {
         offset: 0,
       },
     });
-    await waClient.sendText(phone,
-      `📍 Searching *${lastBooking.Destination} → ${lastBooking.PickupLocation}*...`
-    );
     return showRideList(phone, pref,
       lastBooking.DestLat, lastBooking.DestLng, lastBooking.Destination,
       lastBooking.PickupLat, lastBooking.PickupLng, lastBooking.PickupLocation, 0
@@ -240,7 +234,6 @@ async function processDestLocation(phone, loc, session) {
       offset: 0,
     },
   });
-  await waClient.sendText(phone, `📍 Searching *${userArea} → ${displayName}*...`);
   return showRideList(phone, pref, userLat, userLng, userArea, loc.lat, loc.lng, displayName, 0);
 }
 
@@ -271,7 +264,6 @@ async function handleDestText(phone, text, session) {
       offset: 0,
     },
   });
-  await waClient.sendText(phone, `📍 Searching *${userArea} → ${destName}*...`);
   return showRideList(phone, pref, userLat, userLng, userArea, coords ? coords.lat : 0, coords ? coords.lng : 0, destName, 0);
 }
 

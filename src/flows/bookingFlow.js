@@ -7,7 +7,6 @@ const bookingService = require('../services/bookingService');
 const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const {
-  formatBookingConfirmation, formatSafetyInfo,
   formatDriverNotification, formatDepartureTime,
 } = require('../utils/formatters');
 
@@ -89,22 +88,23 @@ async function handle(phone, text, session) {
 
   console.log(`[Booking] #${booking.BookingID} by ${passenger.Name} for ride #${ride.RideID}`);
 
-  // 1. Booking confirmation
-  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
+  // 1. Brief ride confirmed
+  await waClient.sendText(phone,
+    `✅ *Ride Confirmed!* Booking #${booking.BookingID}\n` +
+    `🗺️ ${ride.PickupLocation} → ${ride.Destination}\n` +
+    `🕐 ${formatDepartureTime(ride.DepartureTime)} | 💺 ${seats} seat(s)`
+  );
 
-  // 2. Security check interstitial — OTP revealed only after confirmation
+  // 2. Security check — full details + OTP revealed after user confirms
   await waClient.sendButtons(phone,
     `🔐 *Security Check*\n\n` +
-    `Verify the driver is from your organisation before sharing OTP.\n` +
+    `Verify the driver is from your organisation before sharing the OTP.\n` +
     `If unsure, do not share.\n\n` +
     `_Loopz is for internal corporate use only._`,
     [{ id: `sec_confirm_${booking.BookingID}`, title: '✅ Confirm: loopmate is from my org' }]
   );
 
-  // 3. Safety info (auto-send)
-  await waClient.sendText(phone, formatSafetyInfo());
-
-  // 3. Ask about recurring ride, then transition to ACTIVE_RIDE for location sharing
+  // Set RECURRING session so sec_confirm_ handler can show recurring question after OTP
   sessionManager.replaceSession(phone, {
     phone,
     flow: FLOWS.RECURRING,
@@ -116,14 +116,6 @@ async function handle(phone, text, session) {
       driverName:    driver ? driver.Name  : null,
     },
   });
-
-  await waClient.sendButtons(phone,
-    '🔁 *Recurring Ride*\n\nDo you want this to be a *daily recurring ride*?\n_(Mon–Fri at the same time)_',
-    [
-      { id: 'rec_yes', title: '🔁 Yes, Daily Ride' },
-      { id: 'rec_no',  title: '✖️ No, Just Once' },
-    ]
-  );
 
   // Set driver's ACTIVE_RIDE session NOW — before sending the notification —
   // so that when the driver receives the message and types the code, their
