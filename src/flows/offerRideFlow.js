@@ -137,11 +137,10 @@ async function handleRepeat(phone, text, session) {
 }
 
 async function askPickupLocation(phone) {
-  await waClient.sendLocationRequest(phone,
+  await waClient.sendLocationRequestWithSearch(phone,
     '📍 *Pickup Location*\n\n' +
-    'Please share your pickup spot using the *Send Location* button below.\n\n' +
-    'You can search for a specific place (e.g. "Miyapur Metro") or share your current location.\n\n' +
-    '_Or type your area name as text (e.g. Miyapur Metro, Kondapur Bus Stop)_'
+    'Tap *Search Location* to find your pickup spot in real-time.\n\n' +
+    '_Or type your area name (e.g. Miyapur Metro, Kondapur Bus Stop)_'
   );
 }
 
@@ -161,10 +160,10 @@ async function processPickupLocation(phone, loc, session) {
     ? `\n💡 Your office: *${user.OfficeLocation}*`
     : '';
 
-  await waClient.sendLocationRequest(phone,
+  await waClient.sendLocationRequestWithSearch(phone,
     `✅ Pickup: *${displayName}*\n\n` +
     `🏁 *Destination*${officeSuggestion}\n\n` +
-    'Share your destination location — search for the office/area or drop a pin.\n\n' +
+    'Tap *Search Location* to find your destination.\n\n' +
     '_Or type the destination name as text_'
   );
 }
@@ -218,8 +217,8 @@ async function applyPickupLocation(phone, pickupText, lat, lng) {
   });
   const user = userService.getUserByPhone(phone);
   const officeSuggestion = user && user.OfficeLocation ? `\n💡 Your office: *${user.OfficeLocation}*` : '';
-  await waClient.sendLocationRequest(phone,
-    `✅ Pickup: *${pickupText}*\n\n🏁 *Destination*${officeSuggestion}\n\nShare location or type the area name.`
+  await waClient.sendLocationRequestWithSearch(phone,
+    `✅ Pickup: *${pickupText}*\n\n🏁 *Destination*${officeSuggestion}\n\nTap *Search Location* or type the area name.`
   );
 }
 

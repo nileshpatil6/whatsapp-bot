@@ -113,6 +113,17 @@ async function sendLocationRequest(chatId, text) {
   });
 }
 
+// Prompt with inline search button for real-time place search via @bot inline mode
+async function sendLocationRequestWithSearch(chatId, text) {
+  return tgSend(chatId, text, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '🔍 Search Location', switch_inline_query_current_chat: '' },
+      ]],
+    },
+  });
+}
+
 // Stub — no mark-read concept in Telegram
 async function markRead() {}
 
@@ -122,6 +133,6 @@ async function sendUnsupportedTypeMessage(chatId) {
 
 module.exports = {
   sendText, sendButtons, sendList,
-  sendLocation, sendLocationRequest, sendContactRequest,
+  sendLocation, sendLocationRequest, sendLocationRequestWithSearch, sendContactRequest,
   markRead, sendUnsupportedTypeMessage,
 };

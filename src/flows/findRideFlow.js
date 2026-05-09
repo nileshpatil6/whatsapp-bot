@@ -128,19 +128,19 @@ async function handleRepeat(phone, text, session) {
 }
 
 async function askPickupLocation(phone) {
-  await waClient.sendLocationRequest(phone,
+  await waClient.sendLocationRequestWithSearch(phone,
     '🔍 *Find a Ride — Step 1 of 2*\n\n' +
     '📍 *Where are you getting picked up?*\n\n' +
-    'Tap *Send Location* or type your pickup area name.\n' +
+    'Tap *Search Location* to find your area.\n' +
     '_(e.g. Miyapur Metro, Kondapur Bus Stop)_'
   );
 }
 
 async function askDestLocation(phone, pickupName) {
-  await waClient.sendLocationRequest(phone,
+  await waClient.sendLocationRequestWithSearch(phone,
     `✅ Pickup: *${pickupName}*\n\n` +
     '🔍 *Step 2 of 2 — Where are you going?*\n\n' +
-    'Tap *Send Location* or type your destination.\n' +
+    'Tap *Search Location* to find your destination.\n' +
     '_(e.g. HITEC City, Gachibowli, Nanakramguda)_'
   );
 }

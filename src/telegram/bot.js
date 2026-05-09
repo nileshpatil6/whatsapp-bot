@@ -17,6 +17,8 @@ async function initBot(token) {
 
   // Plain text messages & bot commands
   bot.on('text', async (ctx) => {
+    // Skip inline-result messages — already handled by chosen_inline_result
+    if (ctx.message.via_bot) return;
     try {
       const chatId = String(ctx.chat.id);
       await route(chatId, ctx.message.text);
@@ -69,8 +71,57 @@ async function initBot(token) {
     }
   });
 
+  // Inline location search — triggered when user taps "Search Location" button
+  bot.on('inline_query', async (ctx) => {
+    const query = ctx.inlineQuery.query.trim();
+    if (query.length < 2) {
+      return ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+    }
+    const { searchPlaces } = require('../services/mapsService');
+    try {
+      const places = await searchPlaces(query);
+      if (!places.length) return ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+
+      const results = places.map(p => {
+        const nameSlice = p.name.slice(0, 43);
+        const resultId = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}|${nameSlice}`;
+        return {
+          type: 'article',
+          id: resultId,
+          title: p.name,
+          description: p.shortAddr || '',
+          input_message_content: { message_text: `📍 ${p.name}` },
+        };
+      });
+
+      return ctx.answerInlineQuery(results, { cache_time: 10, is_personal: true });
+    } catch (e) {
+      console.error('[Bot] inline_query error:', e.message);
+      return ctx.answerInlineQuery([], { cache_time: 0 });
+    }
+  });
+
+  // When user picks an inline result, route it as a location into the active flow
+  bot.on('chosen_inline_result', async (ctx) => {
+    const chatId = String(ctx.chosenInlineResult.from.id);
+    const resultId = ctx.chosenInlineResult.result_id;
+    try {
+      const pipeIdx = resultId.indexOf('|');
+      if (pipeIdx === -1) return;
+      const [lat, lng] = resultId.slice(0, pipeIdx).split(',').map(Number);
+      const name = resultId.slice(pipeIdx + 1);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        await routeLocation(chatId, { lat, lng, name, address: null });
+      }
+    } catch (e) {
+      console.error('[Bot] chosen_inline_result error:', e.message);
+    }
+  });
+
   // Unsupported types (photos, stickers, etc.) — explicitly skip types handled above
   bot.on('message', async (ctx) => {
+    // Skip messages sent via inline mode — already handled by chosen_inline_result
+    if (ctx.message?.via_bot) return;
     if (ctx.message?.text || ctx.message?.location || ctx.message?.contact) return;
     try {
       const chatId = String(ctx.chat.id);
