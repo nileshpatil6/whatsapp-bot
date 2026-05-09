@@ -349,6 +349,8 @@ async function handleTime(phone, text, session) {
       { id: 'seats_2', title: '2' },
       { id: 'seats_3', title: '3' },
       { id: 'seats_4', title: '4' },
+      { id: 'seats_5', title: '5' },
+      { id: 'seats_6', title: '6' },
     ]
   );
 }
@@ -365,6 +367,8 @@ async function handleSeats(phone, text, session) {
         { id: 'seats_2', title: '2' },
         { id: 'seats_3', title: '3' },
         { id: 'seats_4', title: '4' },
+        { id: 'seats_5', title: '5' },
+        { id: 'seats_6', title: '6' },
       ]
     );
   }
