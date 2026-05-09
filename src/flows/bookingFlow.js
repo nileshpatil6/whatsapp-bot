@@ -138,12 +138,12 @@ async function handle(phone, text, session) {
     });
   }
 
-  // Notify driver (fire and forget) — instruct driver to enter code from passenger
+  // Notify driver (fire and forget)
   if (driver) {
     waClient.sendText(driver.Phone,
       formatDriverNotification(booking, updatedRide, passenger) +
-      '\n\n📱 *Reply with the passenger\'s 4-digit code to confirm boarding.*\n' +
-      '_Ask the passenger to show you their Ride Code before you depart._'
+      `\n\n🎫 *Passenger's Ride Code: ${verificationCode}*\n` +
+      '_Ask passenger to confirm this code before you depart._'
     ).catch(err => console.error('[Booking] Driver notify failed:', err.message));
   }
 }

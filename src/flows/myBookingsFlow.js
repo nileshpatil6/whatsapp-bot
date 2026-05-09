@@ -122,6 +122,13 @@ async function handleSelect(phone, text, session) {
 // ─── BOOKING CANCEL ───────────────────────────────────────────────────────────
 
 async function askCancelBooking(phone, booking) {
+  const fullBooking = bookingService.getBookingById(booking.BookingID);
+  const ride   = fullBooking ? rideService.getRideById(fullBooking.RideID) : null;
+  const driver = ride ? userService.getUserById(ride.DriverID) : null;
+  const driverContact = driver && driver.ContactPhone ? `+${driver.ContactPhone}` : '_not shared yet_';
+  const codeLine = fullBooking && fullBooking.VerificationCode
+    ? `\n🎫 *Ride Code: ${fullBooking.VerificationCode}* _(show to driver)_` : '';
+
   sessionManager.setSession(phone, {
     step: STEPS.CANCEL_CONFIRM,
     data: {
@@ -131,13 +138,16 @@ async function askCancelBooking(phone, booking) {
   });
 
   return waClient.sendButtons(phone,
-    `⚠️ *Cancel Booking #${booking.BookingID}?*\n\n` +
-    `🗺️ Route: ${booking.PickupLocation} → ${booking.Destination}\n` +
-    `🕐 Time: ${formatDepartureTime(booking.DepartureTime)}\n` +
-    `💺 ${booking.SeatsBooked} seat(s)\n\n` +
-    '_Please cancel at least 30 min before departure.\nRepeated cancellations may affect your account._',
+    `📋 *Booking #${booking.BookingID}*\n\n` +
+    `🗺️ ${booking.PickupLocation} → ${booking.Destination}\n` +
+    `🕐 ${formatDepartureTime(booking.DepartureTime)}\n` +
+    `💺 ${booking.SeatsBooked} seat(s)\n` +
+    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
+    `📞 Driver contact: ${driverContact}` +
+    `${codeLine}\n\n` +
+    '_Cancel this booking?_',
     [
-      { id: 'cancel_yes', title: '⚠️ Yes, Cancel' },
+      { id: 'cancel_yes', title: '⚠️ Cancel Booking' },
       { id: 'cancel_no', title: '← Keep Booking' },
     ]
   );
@@ -215,6 +225,7 @@ async function showRideManageMenu(phone, rideId) {
     data: { managingRideId: rideId },
   });
 
+  const passengerBtnTitle = ride.BookedSeats > 0 ? `👥 Passengers (${ride.BookedSeats})` : '👥 Passengers';
   return waClient.sendButtons(phone,
     `🚗 *Manage Your Ride*\n\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
@@ -223,6 +234,7 @@ async function showRideManageMenu(phone, rideId) {
     `💰 ₹${ride.PricePerSeat}/seat\n\n` +
     'What would you like to do?',
     [
+      { id: 'ride_passengers', title: passengerBtnTitle },
       { id: 'ride_complete',   title: '✅ Mark Complete' },
       { id: 'ride_reschedule', title: '🗓️ Reschedule' },
       { id: 'ride_cancel',     title: '❌ Cancel Ride' },
@@ -237,6 +249,23 @@ async function handleRideManage(phone, text, session) {
   if (['ride_back', 'back', '← back'].includes(t)) {
     const user = userService.getUserByPhone(phone);
     return start(phone, user);
+  }
+
+  if (['ride_passengers', '👥 passengers'].includes(t) || t.startsWith('ride_passengers')) {
+    const passengers = rideService.getPassengersByRide(managingRideId);
+    if (passengers.length === 0) {
+      return waClient.sendButtons(phone, '👥 No passengers booked yet.',
+        [{ id: 'ride_back', title: '← Back' }]
+      );
+    }
+    let msg = `👥 *Passengers (${passengers.length})*\n\n`;
+    passengers.forEach((p, i) => {
+      const contact = p.ContactPhone ? `+${p.ContactPhone}` : '_not shared_';
+      msg += `*${i + 1}. ${p.Name}*\n`;
+      msg += `   📞 ${contact}\n`;
+      msg += `   🎫 Code: ${p.VerificationCode} | 💺 ${p.SeatsBooked} seat(s)\n\n`;
+    });
+    return waClient.sendButtons(phone, msg, [{ id: 'ride_back', title: '← Back' }]);
   }
 
   if (['ride_complete', '✅ mark complete'].includes(t)) {

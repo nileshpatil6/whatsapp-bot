@@ -80,7 +80,7 @@ function rescheduleRide(rideId, newDepartureTime) {
 // Returns passengers with booking info for a ride (for notifications)
 function getPassengersByRide(rideId) {
   return getDb().prepare(`
-    SELECT u.Phone, u.Name, b.SeatsBooked, b.BookingID
+    SELECT u.Phone, u.Name, u.ContactPhone, b.SeatsBooked, b.BookingID, b.VerificationCode
     FROM Bookings b
     JOIN Users u ON b.UserID = u.UserID
     WHERE b.RideID = ? AND b.Status = 'confirmed'
