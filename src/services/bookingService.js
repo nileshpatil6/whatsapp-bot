@@ -31,7 +31,7 @@ function getActiveBookingsByUser(userId) {
     FROM Bookings b
     JOIN Rides r ON b.RideID = r.RideID
     WHERE b.UserID = ? AND b.Status = 'confirmed'
-      AND r.DepartureTime > datetime('now')
+      AND r.DepartureTime > datetime('now', 'localtime')
     ORDER BY r.DepartureTime ASC
   `).all(userId);
 }

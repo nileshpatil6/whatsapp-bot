@@ -29,7 +29,7 @@ function getActiveRides(preferenceFilter = null) {
     SELECT * FROM Rides
     WHERE Status = 'active'
       AND BookedSeats < TotalSeats
-      AND DepartureTime > datetime('now')
+      AND DepartureTime > datetime('now', 'localtime')
   `;
   if (preferenceFilter === 'women_only') {
     sql += ` AND RidePreference = 'women_only'`;
@@ -92,7 +92,7 @@ function getActiveRideByDriver(driverId) {
   return getDb().prepare(`
     SELECT * FROM Rides
     WHERE DriverID = ? AND Status = 'active'
-      AND DepartureTime > datetime('now', '-3 hours')
+      AND DepartureTime > datetime('now', 'localtime', '-3 hours')
     ORDER BY DepartureTime ASC LIMIT 1
   `).get(driverId) || null;
 }
