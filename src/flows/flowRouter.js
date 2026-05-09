@@ -347,15 +347,17 @@ async function handleBoardingCode(phone, code, driver, rideId) {
 }
 
 async function routeContact(phone, contactPhone) {
+  const cleaned = String(contactPhone).replace(/[\s\-\+\(\)]/g, '');
+  const normalized = cleaned.length === 10 ? `91${cleaned}` : cleaned;
   const session = sessionManager.getSession(phone);
   if (session && session.flow === FLOWS.REGISTRATION) {
-    return getFlow('registration').handleContact(phone, contactPhone, session);
+    return getFlow('registration').handleContact(phone, normalized, session);
   }
   // Outside registration — update contact phone for existing user
   const user = userService.getUserByPhone(phone);
   if (user) {
-    require('../services/userService').updateContactPhone(phone, contactPhone);
-    return waClient.sendText(phone, `✅ Phone number updated to *${contactPhone}*.`);
+    userService.updateContactPhone(phone, normalized);
+    return waClient.sendText(phone, `✅ Phone number updated to *+${normalized}*.`);
   }
 }
 

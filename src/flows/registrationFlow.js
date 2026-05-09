@@ -31,7 +31,9 @@ async function handle(phone, text, session) {
 }
 
 async function handleContact(phone, contactPhone, session) {
-  return savePhone(phone, contactPhone, session);
+  const cleaned = String(contactPhone).replace(/[\s\-\+\(\)]/g, '');
+  const normalized = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+  return savePhone(phone, normalized, session);
 }
 
 async function handleName(phone, text, session) {
@@ -54,13 +56,15 @@ async function handleName(phone, text, session) {
 }
 
 async function handlePhone(phone, text, session) {
-  const cleaned = text.trim().replace(/\s+/g, '');
+  const cleaned = text.trim().replace(/[\s\-\+\(\)]/g, '');
   if (!isValidPhone(cleaned)) {
     return waClient.sendContactRequest(phone,
       '❌ Please enter a valid phone number (10–15 digits).\n\n📱 *Your phone number:*'
     );
   }
-  return savePhone(phone, cleaned, session);
+  // Normalize 10-digit Indian numbers to international format
+  const normalized = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+  return savePhone(phone, normalized, session);
 }
 
 async function savePhone(phone, contactPhone, session) {
