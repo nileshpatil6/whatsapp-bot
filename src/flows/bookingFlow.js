@@ -104,16 +104,18 @@ async function handle(phone, text, session) {
     [{ id: `sec_confirm_${booking.BookingID}`, title: '✅ Confirm: loopmate is from my org' }]
   );
 
-  // Set RECURRING session so sec_confirm_ handler can show recurring question after OTP
+  // Set ACTIVE_RIDE session so passenger can share location with driver
   sessionManager.replaceSession(phone, {
     phone,
-    flow: FLOWS.RECURRING,
-    step: STEPS.RECURRING_ASK,
+    flow: FLOWS.ACTIVE_RIDE,
+    step: 'ACTIVE_RIDE_SHARE',
     data: {
-      bookingId:     booking.BookingID,
-      rideId:        ride.RideID,
-      driverPhone:   driver ? driver.Phone : null,
-      driverName:    driver ? driver.Name  : null,
+      bookingId:      booking.BookingID,
+      driverPhone:    driver ? driver.Phone : null,
+      driverName:     driver ? driver.Name  : null,
+      passengerPhone: phone,
+      passengerName:  passenger.Name,
+      role:           'passenger',
     },
   });
 
@@ -146,55 +148,4 @@ async function handle(phone, text, session) {
   }
 }
 
-async function handleRecurring(phone, text, session) {
-  const t = text.trim().toLowerCase();
-  const { bookingId, driverPhone, driverName } = session.data;
-
-  if (['rec_yes', 'yes', '🔁 yes, daily ride'].includes(t)) {
-    getDb().prepare('UPDATE Bookings SET IsRecurring = 1 WHERE BookingID = ?').run(bookingId);
-    await waClient.sendText(phone,
-      '✅ *Recurring ride set!* 🔁\n\nYour ride will repeat *Mon–Fri* at the same time.\n\n' +
-      'You can cancel anytime by replying *cancel*.'
-    );
-  } else {
-    await waClient.sendText(phone, '✅ Got it! One-time booking confirmed.');
-  }
-
-  // Switch to ACTIVE_RIDE — user can share live location with driver through the bot
-  const { FLOWS } = require('../utils/constants');
-  const passenger = userService.getUserByPhone(phone);
-  if (driverPhone) {
-    sessionManager.replaceSession(phone, {
-      phone,
-      flow: FLOWS.ACTIVE_RIDE,
-      step: 'ACTIVE_RIDE_SHARE',
-      data: { driverPhone, driverName, passengerPhone: phone, passengerName: passenger.Name, role: 'passenger', bookingId },
-    });
-    await waClient.sendText(phone,
-      '📍 *Location Sharing (Optional)*\n\n' +
-      `To keep your driver *${driverName || 'your driver'}* updated on your location:\n\n` +
-      '• Tap 📎 (attachment) → *Location* in this chat\n' +
-      '• Share your current location or search for your spot\n\n' +
-      'The bot will *automatically forward* your location to the driver. 🛡️\n\n' +
-      'You can share location anytime before or during the ride.'
-    );
-    await waClient.sendButtons(phone,
-      '🎉 *All set! Enjoy your ride.*\n\n_Share feedback or go back to the main menu._',
-      [
-        { id: 'pf_feedback', title: '💬 Leave Feedback' },
-        { id: 'pf_menu',     title: '📋 Main Menu' },
-      ]
-    );
-
-    // Driver's ACTIVE_RIDE session was already set in handle() when the
-    // booking was confirmed — no need to set it again here.
-  } else {
-    sessionManager.clearSession(phone);
-    const user = userService.getUserByPhone(phone);
-    return require('./mainMenuFlow').show(phone, user);
-  }
-}
-
-function getDb() { return require('../db/database').getDb(); }
-
-module.exports = { start, handle, handleRecurring };
+module.exports = { start, handle };

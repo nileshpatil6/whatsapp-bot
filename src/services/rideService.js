@@ -87,8 +87,18 @@ function getPassengersByRide(rideId) {
   `).all(rideId);
 }
 
+// Get the most imminent active ride for a driver (within 3 hours past departure)
+function getActiveRideByDriver(driverId) {
+  return getDb().prepare(`
+    SELECT * FROM Rides
+    WHERE DriverID = ? AND Status = 'active'
+      AND DepartureTime > datetime('now', '-3 hours')
+    ORDER BY DepartureTime ASC LIMIT 1
+  `).get(driverId) || null;
+}
+
 module.exports = {
   createRide, getRideById, getActiveRides,
   getRidesByDriver, getLastRideByDriver, incrementBookedSeats, updateRideStatus,
-  cancelRide, completeRide, rescheduleRide, getPassengersByRide,
+  cancelRide, completeRide, rescheduleRide, getPassengersByRide, getActiveRideByDriver,
 };

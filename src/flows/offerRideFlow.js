@@ -25,8 +25,7 @@ async function start(phone, user) {
     return waClient.sendButtons(phone,
       `🔄 *Previous Route Found*\n\n` +
       `📍 ${lastRide.PickupLocation} → ${lastRide.Destination}\n` +
-      `🚗 ${vehicleLabel} | 💺 ${lastRide.TotalSeats} seat(s)\n` +
-      `🎯 ${lastRide.RidePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All'}\n\n` +
+      `🚗 ${vehicleLabel} | 💺 ${lastRide.TotalSeats} seat(s)\n\n` +
       'Post the same route again?',
       [
         { id: 'repeat_yes',    title: '✅ Same Route' },
@@ -50,7 +49,6 @@ async function handle(phone, text, session) {
     case STEPS.OFFER_ASK_TIME:         return handleTime(phone, text, session);
     case STEPS.OFFER_ASK_SEATS:        return handleSeats(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE:      return handleVehicle(phone, text, session);
-    case STEPS.OFFER_ASK_PREFERENCE:   return handlePreference(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE_NUM:  return handleVehicleNum(phone, text, session);
     case STEPS.OFFER_CONFIRM:          return handleConfirm(phone, text, session);
     default: return start(phone);
@@ -257,7 +255,6 @@ async function handleTime(phone, text, session) {
       // Vehicle number also available — go straight to confirm
       sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { departureTime, departureDisplay: display } });
       const updated = sessionManager.getSession(phone).data;
-      const prefStr = updated.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
       const vehicleLabel = updated.vehicleType.charAt(0).toUpperCase() + updated.vehicleType.slice(1);
       return waClient.sendButtons(phone,
         `📋 *Ride Summary*\n\n` +
@@ -267,8 +264,7 @@ async function handleTime(phone, text, session) {
         `🕐 Time: ${display}\n` +
         `💺 Seats: ${updated.totalSeats}\n` +
         `💰 Price: ₹${updated.pricePerSeat}/seat\n` +
-        `🚗 Vehicle: ${vehicleLabel} (${updated.vehicleNumber})\n` +
-        `🎯 Preference: ${prefStr}\n\n` +
+        `🚗 Vehicle: ${vehicleLabel} (${updated.vehicleNumber})\n\n` +
         'Confirm this ride?',
         [
           { id: 'offer_yes', title: '✅ Yes, Post Ride' },
@@ -285,30 +281,48 @@ async function handleTime(phone, text, session) {
 
   // Normal path — continue step by step
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_SEATS, data: { departureTime, departureDisplay: display } });
-  await waClient.sendText(phone,
-    `✅ Departure: *${display}*\n\n💺 *How many seats are available?*`
+  await waClient.sendButtons(phone,
+    `✅ Departure: *${display}*\n\n💺 *How many seats are available?*`,
+    [
+      { id: 'seats_1', title: '1' },
+      { id: 'seats_2', title: '2' },
+      { id: 'seats_3', title: '3' },
+      { id: 'seats_4', title: '4' },
+      { id: 'seats_5', title: '5' },
+      { id: 'seats_6', title: '6' },
+    ]
   );
 }
 
 async function handleSeats(phone, text, session) {
-  if (!isValidSeats(text)) {
-    return waClient.sendText(phone,
-      '❌ Please enter a number between 1 and 6.\n\n💺 *How many seats are available?*'
+  let inputText = text.trim().toLowerCase().startsWith('seats_')
+    ? text.trim().toLowerCase().replace('seats_', '')
+    : text.trim();
+
+  if (!isValidSeats(inputText)) {
+    return waClient.sendButtons(phone, '❌ Please choose the number of seats:',
+      [
+        { id: 'seats_1', title: '1' },
+        { id: 'seats_2', title: '2' },
+        { id: 'seats_3', title: '3' },
+        { id: 'seats_4', title: '4' },
+        { id: 'seats_5', title: '5' },
+        { id: 'seats_6', title: '6' },
+      ]
     );
   }
-  const seats = parseInt(text.trim(), 10);
+  const seats = parseInt(inputText, 10);
 
-  if (seats >= 2) {
+  if (seats > 1) {
+    const s = sessionManager.getSession(phone).data;
+    const distanceKm = s.distanceKm || 0;
+    const pricePerSeat = mapsService.calculatePrice(distanceKm, 'car');
     sessionManager.setSession(phone, {
-      step: STEPS.OFFER_ASK_PREFERENCE,
-      data: { totalSeats: seats, vehicleType: 'car' },
+      step: STEPS.OFFER_ASK_VEHICLE_NUM,
+      data: { totalSeats: seats, vehicleType: 'car', ridePreference: 'all', pricePerSeat },
     });
-    return waClient.sendButtons(phone,
-      `✅ Seats: *${seats}* — 🚗 *Car* auto-selected\n\n🎯 *Ride Preference:*`,
-      [
-        { id: 'pref_all',   title: '🌐 Open to All' },
-        { id: 'pref_women', title: '👩 Women Only' },
-      ]
+    return waClient.sendText(phone,
+      `✅ ${seats} seats | 🚗 Car\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
     );
   }
 
@@ -336,48 +350,15 @@ async function handleVehicle(phone, text, session) {
       ]
     );
   }
-  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_PREFERENCE, data: { vehicleType } });
-  await waClient.sendButtons(phone,
-    `✅ Vehicle: *${vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}*\n\n🎯 *Ride Preference:*`,
-    [
-      { id: 'pref_all',   title: '🌐 Open to All' },
-      { id: 'pref_women', title: '👩 Women Only' },
-    ]
-  );
-}
-
-async function handlePreference(phone, text, session) {
-  const map = {
-    pref_all: 'all', 'open to all': 'all', 'all': 'all', '🌐 open to all': 'all',
-    pref_women: 'women_only', 'women only': 'women_only', 'women': 'women_only', '👩 women only': 'women_only',
-  };
-  const ridePreference = map[text.trim().toLowerCase()];
-  if (!ridePreference) {
-    return waClient.sendButtons(phone, '🎯 Please select ride preference:',
-      [
-        { id: 'pref_all',   title: '🌐 Open to All' },
-        { id: 'pref_women', title: '👩 Women Only' },
-      ]
-    );
-  }
-
-  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { ridePreference } });
   const s = sessionManager.getSession(phone).data;
-
-  // Use already-calculated distance if available (from location pins), otherwise compute now
-  const distanceKm = s.distanceKm > 0
-    ? s.distanceKm
-    : (s.pickupLat && s.pickupLng && s.destLat && s.destLng
-        ? mapsService.haversineDistance(s.pickupLat, s.pickupLng, s.destLat, s.destLng)
-        : 0);
-  const pricePerSeat = mapsService.calculatePrice(distanceKm, s.vehicleType);
-  sessionManager.setSession(phone, { data: { distanceKm, pricePerSeat } });
-
-  const prefStr = ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
+  const distanceKm = s.distanceKm || 0;
+  const pricePerSeat = mapsService.calculatePrice(distanceKm, vehicleType);
+  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { vehicleType, ridePreference: 'all', pricePerSeat } });
   await waClient.sendText(phone,
-    `✅ Preference: *${prefStr}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
+    `✅ Vehicle: *${vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
   );
 }
+
 
 async function handleVehicleNum(phone, text, session) {
   const vNum = text.trim().toUpperCase();
@@ -390,7 +371,6 @@ async function handleVehicleNum(phone, text, session) {
   sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { vehicleNumber: vNum } });
   const s = sessionManager.getSession(phone).data;
 
-  const prefStr = s.ridePreference === 'women_only' ? '👩 Women Only' : '🌐 Open to All';
   const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
 
   await waClient.sendButtons(phone,
@@ -401,8 +381,7 @@ async function handleVehicleNum(phone, text, session) {
     `🕐 Time: ${s.departureDisplay}\n` +
     `💺 Seats: ${s.totalSeats}\n` +
     `💰 Price: ₹${s.pricePerSeat}/seat\n` +
-    `🚗 Vehicle: ${vehicleLabel} (${vNum})\n` +
-    `🎯 Preference: ${prefStr}\n\n` +
+    `🚗 Vehicle: ${vehicleLabel} (${vNum})\n\n` +
     'Confirm this ride?',
     [
       { id: 'offer_yes', title: '✅ Yes, Post Ride' },
@@ -446,7 +425,7 @@ async function handleConfirm(phone, text, session) {
     totalSeats:     s.totalSeats,
     pricePerSeat:   s.pricePerSeat,
     vehicleType:    s.vehicleType,
-    ridePreference: s.ridePreference,
+    ridePreference: 'all',
     distanceKm:     s.distanceKm,
   });
 

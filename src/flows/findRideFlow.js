@@ -39,23 +39,6 @@ async function start(phone, user) {
 }
 
 async function startFresh(phone, user) {
-  const isFemale = user && user.Gender === 'Female';
-
-  if (isFemale) {
-    sessionManager.setSession(phone, {
-      flow: FLOWS.FIND_RIDE,
-      step: STEPS.FIND_ASK_PREFERENCE,
-      data: {},
-    });
-    return waClient.sendButtons(phone,
-      '🔍 *Find a Ride*\n\n🎯 *Ride Preference:*\nWould you like to see all rides or women-only rides?',
-      [
-        { id: 'fp_all',   title: '🌐 All Rides' },
-        { id: 'fp_women', title: '👩 Women Only' },
-      ]
-    );
-  }
-
   sessionManager.setSession(phone, {
     flow: FLOWS.FIND_RIDE,
     step: STEPS.FIND_ASK_LOCATION,
@@ -69,7 +52,6 @@ async function startFresh(phone, user) {
 async function handle(phone, text, session) {
   switch (session.step) {
     case STEPS.FIND_ASK_REPEAT:     return handleRepeat(phone, text, session);
-    case STEPS.FIND_ASK_PREFERENCE: return handlePreference(phone, text, session);
     case STEPS.FIND_ASK_LOCATION:   return handlePickupText(phone, text, session);
     case STEPS.FIND_ASK_DEST_LOC:   return handleDestText(phone, text, session);
     case STEPS.FIND_BROWSE:         return handleBrowse(phone, text, session);
@@ -161,26 +143,6 @@ async function askDestLocation(phone, pickupName) {
   );
 }
 
-async function handlePreference(phone, text, session) {
-  const map = {
-    fp_all: 'all', all: 'all', 'all rides': 'all', '🌐 all rides': 'all',
-    fp_women: 'women_only', 'women only': 'women_only', women: 'women_only', '👩 women only': 'women_only',
-  };
-  const pref = map[text.trim().toLowerCase()];
-  if (!pref) {
-    return waClient.sendButtons(phone, '🎯 Please select a preference to continue:',
-      [
-        { id: 'fp_all',   title: '🌐 All Rides' },
-        { id: 'fp_women', title: '👩 Women Only' },
-      ]
-    );
-  }
-  sessionManager.setSession(phone, {
-    step: STEPS.FIND_ASK_LOCATION,
-    data: { ridePreference: pref },
-  });
-  return askPickupLocation(phone);
-}
 
 async function processPickupLocation(phone, loc, session) {
   if (!loc.lat || !loc.lng) {
@@ -420,7 +382,13 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
     data: { selectedRideId: rideId, maxSeats: available, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll },
   });
 
-  return waClient.sendText(phone,
+  const seatBtns = [];
+  for (let i = 1; i <= Math.min(available, 6); i++) {
+    seatBtns.push({ id: `seats_${i}`, title: i === 1 ? '1 Seat' : `${i} Seats` });
+  }
+  seatBtns.push({ id: 'back_list', title: '← Back' });
+
+  return waClient.sendButtons(phone,
     `🚗 *Ride Details*${prefLabel}\n\n` +
     `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
@@ -428,7 +396,8 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
     `💺 Available: ${available} seat(s)\n` +
     `💰 Price: ${price}${distNote}\n` +
     `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
-    `*How many seats do you need?* _(enter 1–${available})_`
+    `How many seats do you need?`,
+    seatBtns
   );
 }
 
@@ -436,7 +405,7 @@ async function handleSeatSelect(phone, text, session) {
   const t = text.trim().toLowerCase();
   const { selectedRideId, maxSeats, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll } = session.data;
 
-  if (t === 'back_list' || t === 'back' || t === '← back to list') {
+  if (t === 'back_list' || t === 'back' || t === '← back to list' || t === '← back') {
     sessionManager.setSession(phone, {
       step: STEPS.FIND_BROWSE,
       data: { ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll },
@@ -445,12 +414,16 @@ async function handleSeatSelect(phone, text, session) {
     return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset || 0);
   }
 
-  const seats = parseInt(text.trim(), 10);
+  const rawInput = t.startsWith('seats_') ? t.replace('seats_', '') : text.trim();
+  const seats = parseInt(rawInput, 10);
 
   if (isNaN(seats) || seats < 1 || seats > maxSeats) {
-    return waClient.sendText(phone,
-      `❌ Please enter a number between 1 and ${maxSeats}.\nOr reply *back* to return to the ride list.`
-    );
+    const seatBtns = [];
+    for (let i = 1; i <= Math.min(maxSeats, 6); i++) {
+      seatBtns.push({ id: `seats_${i}`, title: i === 1 ? '1 Seat' : `${i} Seats` });
+    }
+    seatBtns.push({ id: 'back_list', title: '← Back' });
+    return waClient.sendButtons(phone, `❌ Please choose a valid number of seats:`, seatBtns);
   }
 
   const ride = rideService.getRideById(selectedRideId);

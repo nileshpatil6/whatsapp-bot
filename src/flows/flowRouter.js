@@ -87,12 +87,19 @@ async function route(phone, text) {
     // 5. Safety info
     await waClient.sendText(phone, formatSafetyInfo());
 
-    // 6. Recurring ride question (session is already RECURRING)
+    // 6. Location sharing tip + all set
+    await waClient.sendText(phone,
+      '📍 *Location Sharing (Optional)*\n\n' +
+      'Keep your driver updated:\n' +
+      '• Tap 📎 → *Location* in this chat\n' +
+      '• Share current location or search\n\n' +
+      'Bot will forward it to your driver. 🛡️'
+    );
     return waClient.sendButtons(phone,
-      '🔁 *Recurring Ride?*\n\nMake this a *daily ride* Mon–Fri at the same time?',
+      '🎉 *All set! Enjoy your ride.*',
       [
-        { id: 'rec_yes', title: '🔁 Yes, Daily Ride' },
-        { id: 'rec_no',  title: '✖️ No, Just Once' },
+        { id: 'pf_feedback', title: '💬 Leave Feedback' },
+        { id: 'pf_menu',     title: '📋 Main Menu' },
       ]
     );
   }
@@ -131,6 +138,14 @@ async function route(phone, text) {
     }
   }
 
+  // --- Global: driver boarding code (4-digit from any state) ---
+  if (/^\d{4}$/.test(norm) && user) {
+    const activeRide = rideService.getActiveRideByDriver(user.UserID);
+    if (activeRide) {
+      return handleBoardingCode(phone, norm, user, activeRide.RideID);
+    }
+  }
+
   // --- No session → route to registration or menu ---
   if (!session) {
     if (!user || !user.IsVerified) return getFlow('registration').start(phone);
@@ -158,9 +173,6 @@ async function route(phone, text) {
 
       case FLOWS.BOOKING:
         return getFlow('booking').handle(phone, text, session);
-
-      case FLOWS.RECURRING:
-        return getFlow('booking').handleRecurring(phone, text, session);
 
       case FLOWS.MY_BOOKINGS:
         return getFlow('myBookings').handle(phone, text, session);
