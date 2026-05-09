@@ -138,8 +138,10 @@ async function route(phone, text) {
     }
   }
 
-  // --- Global: driver boarding code (4-digit from any state) ---
-  if (/^\d{4}$/.test(norm) && user) {
+  // --- Global: driver boarding code (4-digit) — only when not mid-flow ---
+  // Skip if user is in a flow that expects typed numeric input (time, seats, etc.)
+  const flowsExpectingInput = [FLOWS.OFFER_RIDE, FLOWS.FIND_RIDE, FLOWS.REGISTRATION, FLOWS.BOOKING];
+  if (/^\d{4}$/.test(norm) && user && (!session || !flowsExpectingInput.includes(session.flow))) {
     const activeRide = rideService.getActiveRideByDriver(user.UserID);
     if (activeRide) {
       return handleBoardingCode(phone, norm, user, activeRide.RideID);
