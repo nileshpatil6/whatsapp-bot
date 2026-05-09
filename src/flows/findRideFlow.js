@@ -272,9 +272,7 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
   if (filtered.length === 0) {
     sessionManager.clearSession(phone);
     return waClient.sendButtons(phone,
-      preference === 'women_only'
-        ? '👩 No women-only rides available right now.'
-        : '🚗 No rides available right now.\n\nAsk a colleague to post a ride on Loopz!',
+      '🚗 No rides available right now.\n\nAsk a colleague to post a ride on Loopz!',
       [
         { id: 'menu_1', title: '🚗 Offer a Ride' },
         { id: 'pf_menu', title: '📋 Main Menu' },
