@@ -53,7 +53,9 @@ async function handle(phone, text, session) {
   switch (session.step) {
     case STEPS.FIND_ASK_REPEAT:     return handleRepeat(phone, text, session);
     case STEPS.FIND_ASK_LOCATION:   return handlePickupText(phone, text, session);
+    case STEPS.FIND_SELECT_PICKUP:  return handlePickupSelect(phone, text, session);
     case STEPS.FIND_ASK_DEST_LOC:   return handleDestText(phone, text, session);
+    case STEPS.FIND_SELECT_DEST:    return handleDestSelect(phone, text, session);
     case STEPS.FIND_BROWSE:         return handleBrowse(phone, text, session);
     case STEPS.FIND_RIDE_SELECTED:  return handleSeatSelect(phone, text, session);
     default: return start(phone);
@@ -162,13 +164,46 @@ async function handlePickupText(phone, text, session) {
       '❌ Please enter a valid area name or share your location.\n_(e.g. *Miyapur Metro*, *Kondapur*)_'
     );
   }
-  const coords = await mapsService.geocodeAddress(text);
-  const pickupName = text.trim();
+  const places = await mapsService.searchPlaces(text);
+  if (places.length === 1) {
+    return applyPickupLocation(phone, places[0].name, places[0].lat, places[0].lng, session);
+  }
+  if (places.length > 1) {
+    const btns = places.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+    btns.push({ id: 'place_none', title: '🔄 Not found, retype' });
+    sessionManager.setSession(phone, { step: STEPS.FIND_SELECT_PICKUP, data: { pendingPlaces: places } });
+    return waClient.sendButtons(phone,
+      `📍 Select your pickup from results for "*${text.trim()}*":`,
+      btns
+    );
+  }
+  return applyPickupLocation(phone, text.trim(), 0, 0, session);
+}
+
+async function handlePickupSelect(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { pendingPlaces } = session.data;
+  if (t === 'place_none') {
+    sessionManager.setSession(phone, { step: STEPS.FIND_ASK_LOCATION, data: {} });
+    return waClient.sendText(phone, '📍 *Pickup Location:*\n\nType the area name again:');
+  }
+  if (t.startsWith('place_')) {
+    const idx = parseInt(t.replace('place_', ''), 10);
+    const p = pendingPlaces[idx];
+    if (p) return applyPickupLocation(phone, p.name, p.lat, p.lng, session);
+  }
+  const btns = pendingPlaces.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+  btns.push({ id: 'place_none', title: '🔄 Not found, retype' });
+  return waClient.sendButtons(phone, `📍 Select your pickup:`, btns);
+}
+
+async function applyPickupLocation(phone, name, lat, lng, session) {
+  const ridePreference = session.data.ridePreference || 'all';
   sessionManager.setSession(phone, {
     step: STEPS.FIND_ASK_DEST_LOC,
-    data: { userLat: coords ? coords.lat : 0, userLng: coords ? coords.lng : 0, userArea: pickupName },
+    data: { userLat: lat, userLng: lng, userArea: name, ridePreference },
   });
-  return askDestLocation(phone, pickupName);
+  return askDestLocation(phone, name);
 }
 
 async function processDestLocation(phone, loc, session) {
@@ -207,26 +242,57 @@ async function handleDestText(phone, text, session) {
   }
   const { userLat, userLng, userArea, ridePreference } = session.data;
 
-  if (text.trim().toLowerCase() === userArea.toLowerCase()) {
+  if (text.trim().toLowerCase() === (userArea || '').toLowerCase()) {
     return waClient.sendText(phone,
-      '❌ Destination must be different from your pickup.\n\n' +
-      `📍 Pickup: *${userArea}*\n\nWhere are you going?`
+      `❌ Destination must be different from pickup.\n\n📍 Pickup: *${userArea}*\n\nWhere are you going?`
     );
   }
-  const coords = await mapsService.geocodeAddress(text);
-  const pref = ridePreference || 'all';
-  const destName = text.trim();
+  const places = await mapsService.searchPlaces(text);
+  if (places.length === 1) {
+    return applyDestLocation(phone, places[0].name, places[0].lat, places[0].lng, session);
+  }
+  if (places.length > 1) {
+    const btns = places.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+    btns.push({ id: 'place_none', title: '🔄 Not found, retype' });
+    sessionManager.setSession(phone, { step: STEPS.FIND_SELECT_DEST, data: { pendingPlaces: places } });
+    return waClient.sendButtons(phone,
+      `🏁 Select your destination from results for "*${text.trim()}*":`,
+      btns
+    );
+  }
+  return applyDestLocation(phone, text.trim(), 0, 0, session);
+}
 
+async function handleDestSelect(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { pendingPlaces } = session.data;
+  if (t === 'place_none') {
+    sessionManager.setSession(phone, { step: STEPS.FIND_ASK_DEST_LOC, data: {} });
+    return waClient.sendText(phone, '🏁 *Destination:*\n\nType the area name again:');
+  }
+  if (t.startsWith('place_')) {
+    const idx = parseInt(t.replace('place_', ''), 10);
+    const p = pendingPlaces[idx];
+    if (p) return applyDestLocation(phone, p.name, p.lat, p.lng, session);
+  }
+  const btns = pendingPlaces.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+  btns.push({ id: 'place_none', title: '🔄 Not found, retype' });
+  return waClient.sendButtons(phone, `🏁 Select your destination:`, btns);
+}
+
+async function applyDestLocation(phone, destName, lat, lng, session) {
+  const { userLat, userLng, userArea, ridePreference } = session.data;
+
+  if (userLat && userLng && lat && lng && mapsService.haversineDistance(userLat, userLng, lat, lng) < 0.3) {
+    await waClient.sendText(phone, `❌ Destination must be different from pickup.\n\n📍 Pickup: *${userArea}*\n\nWhere are you going?`);
+    return askDestLocation(phone, userArea);
+  }
+  const pref = ridePreference || 'all';
   sessionManager.setSession(phone, {
     step: STEPS.FIND_BROWSE,
-    data: {
-      ridePreference: pref,
-      userLat, userLng, userArea,
-      destLat: coords ? coords.lat : 0, destLng: coords ? coords.lng : 0, destArea: destName,
-      offset: 0,
-    },
+    data: { ridePreference: pref, userLat, userLng, userArea, destLat: lat, destLng: lng, destArea: destName, offset: 0 },
   });
-  return showRideList(phone, pref, userLat, userLng, userArea, coords ? coords.lat : 0, coords ? coords.lng : 0, destName, 0);
+  return showRideList(phone, pref, userLat, userLng, userArea, lat, lng, destName, 0);
 }
 
 // ─── Ride list display ────────────────────────────────────────────────────────

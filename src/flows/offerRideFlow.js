@@ -7,6 +7,7 @@ const mapsService = require('../services/mapsService');
 const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const { isValidAreaText, isValidSeats, parseTimeInput, formatDateForDb } = require('../utils/validators');
+const PLACE_NONE = 'place_none';
 const { formatDepartureTime } = require('../utils/formatters');
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
@@ -45,7 +46,9 @@ async function handle(phone, text, session) {
   switch (session.step) {
     case STEPS.OFFER_ASK_REPEAT:       return handleRepeat(phone, text, session);
     case STEPS.OFFER_ASK_PICKUP_LOC:   return handlePickupText(phone, text, session);
+    case STEPS.OFFER_SELECT_PICKUP:    return handlePickupSelect(phone, text, session);
     case STEPS.OFFER_ASK_DEST_LOC:     return handleDestText(phone, text, session);
+    case STEPS.OFFER_SELECT_DEST:      return handleDestSelect(phone, text, session);
     case STEPS.OFFER_ASK_TIME:         return handleTime(phone, text, session);
     case STEPS.OFFER_ASK_SEATS:        return handleSeats(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE:      return handleVehicle(phone, text, session);
@@ -172,22 +175,51 @@ async function handlePickupText(phone, text, session) {
       '❌ Please enter a valid area name.\n_(e.g. *Miyapur Metro*, *Kondapur Bus Stop*)_\n\n📍 *Pickup Location:*'
     );
   }
-  const coords = await mapsService.geocodeAddress(text);
-  const pickupText = text.trim();
+  const places = await mapsService.searchPlaces(text);
+  if (places.length === 1) {
+    return applyPickupLocation(phone, places[0].name, places[0].lat, places[0].lng);
+  }
+  if (places.length > 1) {
+    const btns = places.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+    btns.push({ id: PLACE_NONE, title: '🔄 Not found, retype' });
+    sessionManager.setSession(phone, { step: STEPS.OFFER_SELECT_PICKUP, data: { pendingPlaces: places, typedText: text.trim() } });
+    return waClient.sendButtons(phone,
+      `📍 Select your pickup from the results for "*${text.trim()}*":`,
+      btns
+    );
+  }
+  // No API / no results — proceed with typed text, coords unknown
+  return applyPickupLocation(phone, text.trim(), 0, 0);
+}
+
+async function handlePickupSelect(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { pendingPlaces, typedText } = session.data;
+
+  if (t === PLACE_NONE) {
+    sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_PICKUP_LOC, data: {} });
+    return waClient.sendText(phone, '📍 *Pickup Location:*\n\nType the area name again:');
+  }
+  if (t.startsWith('place_')) {
+    const idx = parseInt(t.replace('place_', ''), 10);
+    const p = pendingPlaces[idx];
+    if (p) return applyPickupLocation(phone, p.name, p.lat, p.lng);
+  }
+  // Re-show buttons
+  const btns = pendingPlaces.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+  btns.push({ id: PLACE_NONE, title: '🔄 Not found, retype' });
+  return waClient.sendButtons(phone, `📍 Select your pickup:`, btns);
+}
+
+async function applyPickupLocation(phone, pickupText, lat, lng) {
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_DEST_LOC,
-    data: { pickupText, pickupLat: coords ? coords.lat : 0, pickupLng: coords ? coords.lng : 0 },
+    data: { pickupText, pickupLat: lat, pickupLng: lng },
   });
-
   const user = userService.getUserByPhone(phone);
-  const officeSuggestion = user && user.OfficeLocation
-    ? `\n💡 Your office: *${user.OfficeLocation}*`
-    : '';
-
+  const officeSuggestion = user && user.OfficeLocation ? `\n💡 Your office: *${user.OfficeLocation}*` : '';
   await waClient.sendLocationRequest(phone,
-    `✅ Pickup: *${pickupText}*\n\n` +
-    `🏁 *Destination*${officeSuggestion}\n\n` +
-    'Share your destination location or type the area name.'
+    `✅ Pickup: *${pickupText}*\n\n🏁 *Destination*${officeSuggestion}\n\nShare location or type the area name.`
   );
 }
 
@@ -219,22 +251,52 @@ async function handleDestText(phone, text, session) {
       '❌ Please enter a valid destination name.\n_(e.g. *Gachibowli*, *HITEC City*)_\n\n🏁 *Destination:*'
     );
   }
-  const coords = await mapsService.geocodeAddress(text);
-  const destLat = coords ? coords.lat : 0;
-  const destLng = coords ? coords.lng : 0;
-  const { pickupLat, pickupLng } = session.data;
-  const distanceKm = (pickupLat && pickupLng && destLat && destLng)
-    ? mapsService.haversineDistance(pickupLat, pickupLng, destLat, destLng)
-    : 0;
+  const places = await mapsService.searchPlaces(text);
+  if (places.length === 1) {
+    return applyDestLocation(phone, places[0].name, places[0].lat, places[0].lng, session);
+  }
+  if (places.length > 1) {
+    const btns = places.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+    btns.push({ id: PLACE_NONE, title: '🔄 Not found, retype' });
+    sessionManager.setSession(phone, { step: STEPS.OFFER_SELECT_DEST, data: { pendingPlaces: places, typedText: text.trim() } });
+    return waClient.sendButtons(phone,
+      `🏁 Select your destination from the results for "*${text.trim()}*":`,
+      btns
+    );
+  }
+  return applyDestLocation(phone, text.trim(), 0, 0, session);
+}
 
+async function handleDestSelect(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const { pendingPlaces } = session.data;
+
+  if (t === PLACE_NONE) {
+    sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_DEST_LOC, data: {} });
+    return waClient.sendText(phone, '🏁 *Destination:*\n\nType the area name again:');
+  }
+  if (t.startsWith('place_')) {
+    const idx = parseInt(t.replace('place_', ''), 10);
+    const p = pendingPlaces[idx];
+    if (p) return applyDestLocation(phone, p.name, p.lat, p.lng, session);
+  }
+  const btns = pendingPlaces.map((p, i) => ({ id: `place_${i}`, title: trunc(p.name, 40) }));
+  btns.push({ id: PLACE_NONE, title: '🔄 Not found, retype' });
+  return waClient.sendButtons(phone, `🏁 Select your destination:`, btns);
+}
+
+async function applyDestLocation(phone, destText, lat, lng, session) {
+  const { pickupLat, pickupLng } = session.data;
+  const distanceKm = (pickupLat && pickupLng && lat && lng)
+    ? mapsService.haversineDistance(pickupLat, pickupLng, lat, lng)
+    : 0;
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_TIME,
-    data: { destText: text.trim(), destLat, destLng, distanceKm },
+    data: { destText, destLat: lat, destLng: lng, distanceKm },
   });
-
   const distNote = distanceKm > 0 ? `\n📏 Distance: ~${distanceKm.toFixed(1)} km` : '';
   await waClient.sendText(phone,
-    `✅ Destination: *${text.trim()}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
+    `✅ Destination: *${destText}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
   );
 }
 
@@ -487,6 +549,10 @@ async function startWithRoute(phone, user, savedRoute) {
     `🕐 *What time is the departure tomorrow?*\n_(e.g. 09:00, 08:30)_\n\n` +
     '_Reply *cancel* to go back._'
   );
+}
+
+function trunc(str, max) {
+  return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
 module.exports = { start, startWithRoute, handle, handleLocation };

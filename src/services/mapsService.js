@@ -110,4 +110,27 @@ function calculatePrice(distanceKm, vehicleType) {
   return Math.round(d * 5);
 }
 
-module.exports = { geocodeAddress, reverseGeocode, getDisplayName, haversineDistance, calculatePrice };
+// Search for up to 4 matching places for a query in Hyderabad
+// Returns array of { name, shortAddr, lat, lng }
+async function searchPlaces(query) {
+  if (!process.env.GOOGLE_MAPS_API_KEY) return [];
+  const q = `${query.trim()}, Hyderabad, Telangana, India`;
+  try {
+    const res = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      params: { address: q, key: process.env.GOOGLE_MAPS_API_KEY },
+      timeout: 8000,
+    });
+    if (res.data.status !== 'OK' || !res.data.results?.length) return [];
+    return res.data.results.slice(0, 4).map(r => {
+      const parts = r.formatted_address.split(',').map(s => s.trim());
+      const name = parts[0];
+      const shortAddr = parts.slice(1, 3).join(', ');
+      return { name, shortAddr, lat: r.geometry.location.lat, lng: r.geometry.location.lng };
+    });
+  } catch (err) {
+    console.error('[Maps] searchPlaces failed:', err.message);
+    return [];
+  }
+}
+
+module.exports = { geocodeAddress, reverseGeocode, getDisplayName, haversineDistance, calculatePrice, searchPlaces };
