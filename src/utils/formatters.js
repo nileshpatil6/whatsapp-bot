@@ -92,8 +92,7 @@ function formatBookingConfirmation(booking, ride, driver) {
     `💰 Total Amount: ${total}\n` +
     `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
     '_Please contact the rider and coordinate pickup._\n' +
-    '_Pay directly to rider via UPI or Cash._\n\n' +
-    `🎫 Booking ID: #${booking.BookingID}`
+    '_Pay directly to rider via UPI or Cash._'
   );
 }
 
@@ -130,9 +129,9 @@ function formatDriverNotification(booking, ride, passenger) {
     `👤 ${passenger.Name} has booked *${booking.SeatsBooked}* seat(s) on your ride.\n\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
-    `🆔 Ride #${ride.RideID}\n` +
     `💺 Booked: ${ride.BookedSeats}/${ride.TotalSeats} seats\n` +
     `📞 Commuter contact: ${passenger.ContactPhone ? `+${passenger.ContactPhone}` : '_shared via Telegram_'}\n\n` +
+    '🧾 When commuter boards, ask for their 4-digit *Ride Code* and type it here anytime to verify.\n\n' +
     'Tap *My Bookings* to manage your rides.'
   );
 }
@@ -152,7 +151,7 @@ function formatMyBookings(bookings) {
     const recurring = b.IsRecurring ? ' 🔁' : '';
     msg += `*${i + 1}.* ${b.PickupLocation} → ${b.Destination}\n`;
     msg += `   🕐 ${formatDepartureTime(b.DepartureTime)} | 💺 ${b.SeatsBooked} seat(s) | 💰 ${price}${recurring}\n`;
-    msg += `   🎫 #${b.BookingID} | ✅ ${b.Status}\n\n`;
+    msg += `   ✅ ${b.Status}\n\n`;
   });
 
   msg += '_Reply the booking number to cancel, or *Menu* to go back._';

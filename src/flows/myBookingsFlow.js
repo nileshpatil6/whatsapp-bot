@@ -46,7 +46,7 @@ async function start(phone, user) {
       rows: bookings.slice(0, 5).map((b) => ({
         id: `booking_${b.BookingID}`,
         title: trunc(`${b.PickupLocation} → ${b.Destination}`, 24),
-        description: trunc(`${formatDepartureTime(b.DepartureTime)} | #${b.BookingID} | ${b.SeatsBooked} seat(s)`, 72),
+        description: trunc(`${formatDepartureTime(b.DepartureTime)} | ${b.SeatsBooked} seat(s)`, 72),
       })),
     });
   }
@@ -138,7 +138,7 @@ async function askCancelBooking(phone, booking) {
   });
 
   return waClient.sendButtons(phone,
-    `📋 *Booking #${booking.BookingID}*\n\n` +
+    `📋 *Booking Details*\n\n` +
     `🗺️ ${booking.PickupLocation} → ${booking.Destination}\n` +
     `🕐 ${formatDepartureTime(booking.DepartureTime)}\n` +
     `💺 ${booking.SeatsBooked} seat(s)\n` +
@@ -172,7 +172,7 @@ async function handleBookingCancelConfirm(phone, text, session) {
         `⚠️ *Booking Cancelled*\n\n` +
         `A commuter has cancelled their booking on your ride.\n\n` +
         `🗺️ ${session.data.cancelBookingText}\n` +
-        `🎫 Booking #${bookingId}` +
+        `🎫 Booking cancelled` +
         (fullBooking ? `\n💺 ${fullBooking.SeatsBooked} seat(s) now available again.` : '') +
         ``
       ).catch(err => console.error('[MyBookings] Driver cancel notify failed:', err.message));
@@ -188,7 +188,7 @@ async function handleBookingCancelConfirm(phone, text, session) {
     });
 
     return waClient.sendButtons(phone,
-      `✅ *Booking #${bookingId} cancelled.*\n\n` +
+      `✅ *Booking cancelled.*\n\n` +
       `_${session.data.cancelBookingText}_\n\n` +
       '_Would you like to share feedback?_',
       [
@@ -359,7 +359,7 @@ async function handleRideCancelConfirm(phone, text, session) {
         `⚠️ *Ride Cancelled by Rider*\n\n` +
         `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
         `(${formatDepartureTime(ride.DepartureTime)}) has been *cancelled*.\n\n` +
-        `Booking #${p.BookingID} has been cancelled.\n\n` +
+        `Your booking has been cancelled.\n\n` +
         `Tap *Find a Ride* in the main menu to search again. 🚗`
       ).catch(err => console.error('[MyBookings] Passenger cancel notify failed:', err.message));
     }
@@ -404,14 +404,14 @@ async function handleRescheduleTime(phone, text, session) {
 
   // Notify passengers — fire and forget
   for (const p of passengers) {
-    waClient.sendText(p.Phone,
-      `🗓️ *Ride Rescheduled*\n\n` +
-      `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
-      `has been rescheduled by the rider.\n\n` +
-      `🕐 New departure time: *${newDisplay}*\n` +
-      `🎫 Booking #${p.BookingID} is still *confirmed*.\n\n` +
-      `Check *My Bookings* for the updated time. 🚗`
-    ).catch(err => console.error('[MyBookings] Passenger reschedule notify failed:', err.message));
+      waClient.sendText(p.Phone,
+        `🗓️ *Ride Rescheduled*\n\n` +
+        `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
+        `has been rescheduled by the rider.\n\n` +
+        `🕐 New departure time: *${newDisplay}*\n` +
+        `🎫 Your booking is still *confirmed*.\n\n` +
+        `Check *My Bookings* for the updated time. 🚗`
+      ).catch(err => console.error('[MyBookings] Passenger reschedule notify failed:', err.message));
   }
 }
 

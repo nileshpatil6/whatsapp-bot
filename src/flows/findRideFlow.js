@@ -338,9 +338,9 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     return waClient.sendButtons(phone,
       `🚗 No rides found for ${routeDesc}.\n\n` +
       `But there are *${allRides.length}* ride(s) available on other routes.\n\n` +
-      'Would you like to browse all available rides?',
+      'Please try a different pickup/destination or check again later.',
       [
-        { id: 'show_all_rides', title: '🔍 Browse All Rides' },
+        // { id: 'show_all_rides', title: '🔍 Browse All Rides' },
         { id: 'back_menu',      title: '🏠 Main Menu' },
       ]
     );
@@ -368,7 +368,7 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
       id:          `ride_${ride.RideID}`,
       title:       trunc(`${ride.PickupLocation} → ${ride.Destination}`, 24),
       description: trunc(
-        `#${ride.RideID} | ${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${distStr}`, 72
+        `${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${distStr}`, 72
       ),
     };
   });
@@ -381,13 +381,13 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     });
   }
 
-  if (!showAll && filtered.length < allRides.length) {
-    rows.push({
-      id:          'show_all_rides',
-      title:       '🔍 Browse All Rides',
-      description: `See all ${allRides.length} ride(s) on the platform`,
-    });
-  }
+  // if (!showAll && filtered.length < allRides.length) {
+  //   rows.push({
+  //     id:          'show_all_rides',
+  //     title:       '🔍 Browse All Rides',
+  //     description: `See all ${allRides.length} ride(s) on the platform`,
+  //   });
+  // }
 
   const routeLabel = destArea ? `${userArea} → ${destArea}` : (userArea || 'All Routes');
   const label      = preference === 'women_only' ? '👩 Women-Only Rides' : '🚗 Available Rides';
@@ -404,10 +404,10 @@ async function handleBrowse(phone, text, session) {
   const t = text.trim().toLowerCase();
   const { ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, showAll, offset } = session.data;
 
-  if (t === 'show_all_rides') {
-    sessionManager.setSession(phone, { data: { showAll: true, offset: 0 } });
-    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, 0, true);
-  }
+  // if (t === 'show_all_rides') {
+  //   sessionManager.setSession(phone, { data: { showAll: true, offset: 0 } });
+  //   return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, 0, true);
+  // }
 
   if (t === 'back_menu') {
     sessionManager.clearSession(phone);
@@ -460,7 +460,7 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
 
   const routeCmdStr = ride.RouteCommand ? `\n📝 Route: _${ride.RouteCommand}_` : '';
   return waClient.sendButtons(phone,
-    `🚗 *Ride Details* | #${ride.RideID}${prefLabel}\n\n` +
+    `🚗 *Ride Details*${prefLabel}\n\n` +
     `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +

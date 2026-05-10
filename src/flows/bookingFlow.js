@@ -7,7 +7,7 @@ const bookingService = require('../services/bookingService');
 const userService = require('../services/userService');
 const { FLOWS, STEPS } = require('../utils/constants');
 const {
-  formatDriverNotification, formatDepartureTime,
+  formatDriverNotification, formatDepartureTime, formatBookingConfirmation, formatSafetyInfo,
 } = require('../utils/formatters');
 
 async function start(phone, ride, seatsNeeded) {
@@ -95,13 +95,25 @@ async function handle(phone, text, session) {
     `🕐 ${formatDepartureTime(ride.DepartureTime)} | 💺 ${seats} seat(s)`
   );
 
-  // 2. Security check — full details + OTP revealed after user confirms
+  // 2. Immediately share ride code and booking details
+  await waClient.sendText(phone,
+    `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your rider before boarding._`
+  );
+  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
+  await waClient.sendText(phone, formatSafetyInfo());
+  await waClient.sendText(phone,
+    '📍 *Location Sharing (Optional)*\n\n' +
+    'Keep your rider updated:\n' +
+    '• Tap 📎 → *Location* in this chat\n' +
+    '• Share current location or search\n\n' +
+    'Bot will forward it to your rider. 🛡️'
+  );
   await waClient.sendButtons(phone,
-    `🔐 *Security Check*\n\n` +
-    `Verify the rider is from your organisation before sharing the OTP.\n` +
-    `If unsure, do not share.\n\n` +
-    `_Loopz is for internal corporate use only._`,
-    [{ id: `sec_confirm_${booking.BookingID}`, title: '✅ Confirm: loopmate is from my org' }]
+    '🎉 *All set! Enjoy your ride.*',
+    [
+      { id: 'pf_feedback', title: '💬 Leave Feedback' },
+      { id: 'pf_menu',     title: '📋 Main Menu' },
+    ]
   );
 
   // Set ACTIVE_RIDE session so passenger can share location with driver
