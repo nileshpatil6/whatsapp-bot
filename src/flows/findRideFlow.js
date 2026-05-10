@@ -337,7 +337,6 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     });
     return waClient.sendButtons(phone,
       `🚗 No rides found for ${routeDesc}.\n\n` +
-      `But there are *${allRides.length}* ride(s) available on other routes.\n\n` +
       'Please try a different pickup/destination or check again later.',
       [
         // { id: 'show_all_rides', title: '🔍 Browse All Rides' },

@@ -90,7 +90,7 @@ async function handle(phone, text, session) {
 
   // 1. Brief ride confirmed
   await waClient.sendText(phone,
-    `✅ *Ride Confirmed!* Booking #${booking.BookingID}\n` +
+    `✅ *Ride Confirmed!*\n` +
     `🗺️ ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 ${formatDepartureTime(ride.DepartureTime)} | 💺 ${seats} seat(s)`
   );
