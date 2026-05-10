@@ -448,7 +448,7 @@ async function handleRouteCmd(phone, text, session) {
     `🕐 Time: ${s.departureDisplay}\n` +
     `💺 Seats: ${s.totalSeats}\n` +
     `💰 Price: ₹${s.pricePerSeat}/seat\n` +
-    `🚗 Vehicle: ${vehicleLabel} (${s.vehicleNumber})` +
+    `🚗 Vehicle: ${vehicleLabel}${s.vehicleNumber ? ` (${s.vehicleNumber})` : ''}` +
     `${routeStr}\n\n` +
     'Confirm this ride?',
     [
@@ -515,7 +515,7 @@ async function handleConfirm(phone, text, session) {
     (s.routeCommand ? `📝 Route: _${s.routeCommand}_\n` : '') +
     '\n✅ Colleagues can now find and book your ride.\n' +
     "📲 You'll get a Telegram notification when someone books!\n\n" +
-    '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your passengers.'
+    '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your commuters.'
   );
 
   return waClient.sendButtons(phone,
