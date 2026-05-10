@@ -363,7 +363,6 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
   const rows = page.map((ride) => {
     const available = ride.TotalSeats - ride.BookedSeats;
     const price     = ride.PricePerSeat === 0 ? 'Free' : `₹${ride.PricePerSeat}/seat`;
-    const womenTag  = ride.RidePreference === 'women_only' ? ' 👩' : '';
     const distStr   = ride.DistanceKm ? ` | ${ride.DistanceKm.toFixed(1)}km` : '';
     return {
       id:          `ride_${ride.RideID}`,
@@ -419,10 +418,7 @@ async function handleBrowse(phone, text, session) {
   if (t.startsWith('more_')) {
     const newOffset = parseInt(t.replace('more_', ''), 10);
     sessionManager.setSession(phone, { data: { offset: newOffset } });
-    if (showAll) {
-      return showRideList(phone, ridePreference, null, null, null, null, null, null, newOffset, true);
-    }
-    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, newOffset);
+    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, newOffset, showAll);
   }
 
   if (t.startsWith('ride_')) {
@@ -438,8 +434,7 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
 
   if (!ride || ride.Status !== 'active' || ride.BookedSeats >= ride.TotalSeats) {
     await waClient.sendText(phone, '❌ That ride is no longer available. Refreshing list...');
-    if (showAll) return showRideList(phone, ridePreference, null, null, null, null, null, null, 0, true);
-    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, 0);
+    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, 0, showAll);
   }
 
   const driver    = userService.getUserById(ride.DriverID);
@@ -487,8 +482,7 @@ async function handleSeatSelect(phone, text, session) {
       step: STEPS.FIND_BROWSE,
       data: { ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset, showAll },
     });
-    if (showAll) return showRideList(phone, ridePreference, null, null, null, null, null, null, offset || 0, true);
-    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset || 0);
+    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, offset || 0, showAll);
   }
 
   const rawInput = t.startsWith('seats_') ? t.replace('seats_', '') : text.trim();

@@ -51,7 +51,7 @@ async function triggerForDriver(driverPhone, ride, passengers) {
   await waClient.sendButtons(driverPhone,
     `🏁 *Trip Complete!*\n\n` +
     `🗺️ ${ride.PickupLocation} → ${ride.Destination}\n\n` +
-    `Great ride, *${driver ? driver.Name : 'Driver'}*! 🎉\n\n` +
+    `Great ride, *${driver ? driver.Name : 'Rider'}*! 🎉\n\n` +
     `Do you want to post *the same route* again for tomorrow?`,
     [
       { id: 'pt_same',      title: '1️⃣ Same Route' },
@@ -90,7 +90,7 @@ async function triggerForPassenger(passengerPhone, ride) {
   await waClient.sendButtons(passengerPhone,
     `🏁 *Trip Complete!*\n\n` +
     `🗺️ ${ride.PickupLocation} → ${ride.Destination}\n\n` +
-    `Hope you had a safe ride, *${passenger ? passenger.Name : 'Passenger'}*! 😊\n\n` +
+    `Hope you had a safe ride, *${passenger ? passenger.Name : 'Commuter'}*! 😊\n\n` +
     `Do you want to find a ride on *the same route* again?`,
     [
       { id: 'pt_same',      title: '1️⃣ Same Route' },
