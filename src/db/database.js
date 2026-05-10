@@ -96,6 +96,9 @@ function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_users_phone      ON Users(Phone);
   `);
 
+  // Start Rides auto-increment at 101 so IDs are always 3+ digits
+  db.exec("INSERT OR IGNORE INTO sqlite_sequence (name, seq) VALUES ('Rides', 100)");
+
   // Migrate existing tables — add columns if they don't exist yet
   const migrations = [
     "ALTER TABLE Users ADD COLUMN Gender TEXT NOT NULL DEFAULT 'Not specified'",
@@ -110,6 +113,7 @@ function initializeDb() {
     "ALTER TABLE Rides ADD COLUMN VehicleNumber TEXT",
     "ALTER TABLE Users ADD COLUMN TotalEarnings REAL NOT NULL DEFAULT 0",
     "ALTER TABLE Users ADD COLUMN ContactPhone TEXT",
+    "ALTER TABLE Rides ADD COLUMN RouteCommand TEXT",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }

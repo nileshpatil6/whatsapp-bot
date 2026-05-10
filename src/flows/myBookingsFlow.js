@@ -127,7 +127,7 @@ async function askCancelBooking(phone, booking) {
   const driver = ride ? userService.getUserById(ride.DriverID) : null;
   const driverContact = driver && driver.ContactPhone ? `+${driver.ContactPhone}` : '_not shared yet_';
   const codeLine = fullBooking && fullBooking.VerificationCode
-    ? `\n🎫 *Ride Code: ${fullBooking.VerificationCode}* _(show to driver)_` : '';
+    ? `\n🎫 *Ride Code: ${fullBooking.VerificationCode}* _(show to rider)_` : '';
 
   sessionManager.setSession(phone, {
     step: STEPS.CANCEL_CONFIRM,
@@ -142,8 +142,8 @@ async function askCancelBooking(phone, booking) {
     `🗺️ ${booking.PickupLocation} → ${booking.Destination}\n` +
     `🕐 ${formatDepartureTime(booking.DepartureTime)}\n` +
     `💺 ${booking.SeatsBooked} seat(s)\n` +
-    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
-    `📞 Driver contact: ${driverContact}` +
+    `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
+    `📞 Rider contact: ${driverContact}` +
     `${codeLine}\n\n` +
     '_Cancel this booking?_',
     [
@@ -170,7 +170,7 @@ async function handleBookingCancelConfirm(phone, text, session) {
     if (driver && driver.Phone !== phone) {
       waClient.sendText(driver.Phone,
         `⚠️ *Booking Cancelled*\n\n` +
-        `A passenger has cancelled their booking on your ride.\n\n` +
+        `A commuter has cancelled their booking on your ride.\n\n` +
         `🗺️ ${session.data.cancelBookingText}\n` +
         `🎫 Booking #${bookingId}` +
         (fullBooking ? `\n💺 ${fullBooking.SeatsBooked} seat(s) now available again.` : '') +
@@ -225,7 +225,7 @@ async function showRideManageMenu(phone, rideId) {
     data: { managingRideId: rideId },
   });
 
-  const passengerBtnTitle = ride.BookedSeats > 0 ? `👥 Passengers (${ride.BookedSeats})` : '👥 Passengers';
+  const passengerBtnTitle = ride.BookedSeats > 0 ? `👥 Commuters (${ride.BookedSeats})` : '👥 Commuters';
   return waClient.sendButtons(phone,
     `🚗 *Manage Your Ride*\n\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
@@ -251,14 +251,14 @@ async function handleRideManage(phone, text, session) {
     return start(phone, user);
   }
 
-  if (['ride_passengers', '👥 passengers'].includes(t) || t.startsWith('ride_passengers')) {
+  if (['ride_passengers', '👥 passengers', '👥 commuters'].includes(t) || t.startsWith('ride_passengers')) {
     const passengers = rideService.getPassengersByRide(managingRideId);
     if (passengers.length === 0) {
-      return waClient.sendButtons(phone, '👥 No passengers booked yet.',
+      return waClient.sendButtons(phone, '👥 No commuters booked yet.',
         [{ id: 'ride_back', title: '← Back' }]
       );
     }
-    let msg = `👥 *Passengers (${passengers.length})*\n\n`;
+    let msg = `👥 *Commuters (${passengers.length})*\n\n`;
     passengers.forEach((p, i) => {
       const contact = p.ContactPhone ? `+${p.ContactPhone}` : '_not shared_';
       msg += `*${i + 1}. ${p.Name}*\n`;
@@ -307,7 +307,7 @@ async function handleRideManage(phone, text, session) {
     });
 
     const passNote = passengers.length > 0
-      ? `\n\n⚠️ *${passengers.length} passenger(s)* will be notified.`
+      ? `\n\n⚠️ *${passengers.length} commuter(s)* will be notified.`
       : '\n\n_(No passengers booked yet)_';
 
     return waClient.sendButtons(phone,
@@ -349,14 +349,14 @@ async function handleRideCancelConfirm(phone, text, session) {
       `✅ *Ride Cancelled.*\n\n` +
       `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
       `🕐 ${ride ? formatDepartureTime(ride.DepartureTime) : ''}\n\n` +
-      (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...` : ''),
+      (passengers.length > 0 ? `📲 Notifying ${passengers.length} commuter(s)...` : ''),
       [{ id: 'pf_menu', title: '📋 Main Menu' }]
     );
 
     // Notify passengers — fire and forget
     for (const p of passengers) {
       waClient.sendText(p.Phone,
-        `⚠️ *Ride Cancelled by Driver*\n\n` +
+        `⚠️ *Ride Cancelled by Rider*\n\n` +
         `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
         `(${formatDepartureTime(ride.DepartureTime)}) has been *cancelled*.\n\n` +
         `Booking #${p.BookingID} has been cancelled.\n\n` +
@@ -398,7 +398,7 @@ async function handleRescheduleTime(phone, text, session) {
     `✅ *Ride Rescheduled!*\n\n` +
     `🗺️ ${ride ? `${ride.PickupLocation} → ${ride.Destination}` : ''}\n` +
     `🕐 New time: *${newDisplay}*\n\n` +
-    (passengers.length > 0 ? `📲 Notifying ${passengers.length} passenger(s)...` : ''),
+    (passengers.length > 0 ? `📲 Notifying ${passengers.length} commuter(s)...` : ''),
     [{ id: 'pf_menu', title: '📋 Main Menu' }]
   );
 
@@ -407,7 +407,7 @@ async function handleRescheduleTime(phone, text, session) {
     waClient.sendText(p.Phone,
       `🗓️ *Ride Rescheduled*\n\n` +
       `Your ride *${ride.PickupLocation} → ${ride.Destination}* ` +
-      `has been rescheduled by the driver.\n\n` +
+      `has been rescheduled by the rider.\n\n` +
       `🕐 New departure time: *${newDisplay}*\n` +
       `🎫 Booking #${p.BookingID} is still *confirmed*.\n\n` +
       `Check *My Bookings* for the updated time. 🚗`

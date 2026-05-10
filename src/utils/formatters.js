@@ -84,15 +84,15 @@ function formatBookingConfirmation(booking, ride, driver) {
   const vehicleNumStr = ride.VehicleNumber ? ` (${ride.VehicleNumber})` : '';
   return (
     '✅ *Ride Confirmed!*\n\n' +
-    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
+    `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
     `📞 Contact: ${driver && driver.ContactPhone ? `+${driver.ContactPhone}` : '_via Telegram_'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}${distStr}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats Booked: ${booking.SeatsBooked}\n` +
     `💰 Total Amount: ${total}\n` +
     `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
-    '_Please contact the driver and coordinate pickup._\n' +
-    '_Pay directly to driver via UPI or Cash._\n\n' +
+    '_Please contact the rider and coordinate pickup._\n' +
+    '_Pay directly to rider via UPI or Cash._\n\n' +
     `🎫 Booking ID: #${booking.BookingID}`
   );
 }
@@ -130,8 +130,9 @@ function formatDriverNotification(booking, ride, passenger) {
     `👤 ${passenger.Name} has booked *${booking.SeatsBooked}* seat(s) on your ride.\n\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
+    `🆔 Ride #${ride.RideID}\n` +
     `💺 Booked: ${ride.BookedSeats}/${ride.TotalSeats} seats\n` +
-    `📞 Passenger contact: ${passenger.ContactPhone ? `+${passenger.ContactPhone}` : '_shared via Telegram_'}\n\n` +
+    `📞 Commuter contact: ${passenger.ContactPhone ? `+${passenger.ContactPhone}` : '_shared via Telegram_'}\n\n` +
     'Tap *My Bookings* to manage your rides.'
   );
 }
@@ -162,9 +163,9 @@ function formatHelpText() {
   return (
     'ℹ️ *Help — Loopz*\n\n' +
     '*How it works:*\n' +
-    '• Drivers offer rides with price and seats\n' +
-    '• Travellers find and join rides\n' +
-    '• Payments are made directly to the driver\n\n' +
+    '• Riders offer rides with price and seats\n' +
+    '• Commuters find and join rides\n' +
+    '• Payments are made directly to the rider\n\n' +
     '*Commands:*\n' +
     '• /offer — Offer a ride\n' +
     '• /find — Find a ride\n' +
@@ -223,7 +224,7 @@ function formatTermsConditions() {
     '• Communicate directly with other users\n' +
     '• Behave respectfully and professionally\n\n' +
     '*3. Payments*\n' +
-    'Payments are made directly between driver and passenger. Loopz is not responsible for payment disputes.\n\n' +
+    'Payments are made directly between rider and commuter. Loopz is not responsible for payment disputes.\n\n' +
     '*4. Safety Disclaimer*\n' +
     'Loopz does not guarantee ride safety, accuracy of user info, or driver/passenger reliability.\n' +
     'Verify identity, share trip details with trusted contacts, and use your judgment.\n\n' +

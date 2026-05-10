@@ -7,7 +7,7 @@ const axios = require('axios');
 async function geocodeAddress(addressText) {
   if (!process.env.GOOGLE_MAPS_API_KEY) return null;
 
-  const query = `${addressText.trim()}, Hyderabad, Telangana, India`;
+  const query = `${addressText.trim()}, India`;
   const url = 'https://maps.googleapis.com/maps/api/geocode/json';
 
   try {
@@ -114,7 +114,7 @@ function calculatePrice(distanceKm, vehicleType) {
 // Returns array of { name, shortAddr, lat, lng }
 async function searchPlaces(query) {
   if (!process.env.GOOGLE_MAPS_API_KEY) return [];
-  const q = `${query.trim()}, Hyderabad, Telangana, India`;
+  const q = `${query.trim()}, India`;
   try {
     const res = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
       params: { address: q, key: process.env.GOOGLE_MAPS_API_KEY },

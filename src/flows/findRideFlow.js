@@ -313,6 +313,17 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
     });
   }
 
+  // When browsing all, sort by combined proximity to user's search coords
+  if (showAll && userLat && userLng) {
+    filtered = [...filtered].sort((a, b) => {
+      const scoreA = mapsService.haversineDistance(userLat, userLng, a.PickupLat, a.PickupLng)
+        + (destLat && destLng ? mapsService.haversineDistance(destLat, destLng, a.DestLat, a.DestLng) : 0);
+      const scoreB = mapsService.haversineDistance(userLat, userLng, b.PickupLat, b.PickupLng)
+        + (destLat && destLng ? mapsService.haversineDistance(destLat, destLng, b.DestLat, b.DestLng) : 0);
+      return scoreA - scoreB;
+    });
+  }
+
   if (filtered.length === 0 && allRides.length > 0 && !showAll) {
     const routeDesc = destArea ? `*${userArea} → ${destArea}*` : `*${userArea}*`;
     sessionManager.setSession(phone, {
@@ -358,7 +369,7 @@ async function showRideList(phone, preference, userLat, userLng, userArea, destL
       id:          `ride_${ride.RideID}`,
       title:       trunc(`${ride.PickupLocation} → ${ride.Destination}`, 24),
       description: trunc(
-        `${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${womenTag}${distStr}`, 72
+        `#${ride.RideID} | ${formatDepartureTime(ride.DepartureTime)} | ${available} seat(s) | ${price}${distStr}`, 72
       ),
     };
   });
@@ -396,7 +407,7 @@ async function handleBrowse(phone, text, session) {
 
   if (t === 'show_all_rides') {
     sessionManager.setSession(phone, { data: { showAll: true, offset: 0 } });
-    return showRideList(phone, ridePreference, null, null, null, null, null, null, 0, true);
+    return showRideList(phone, ridePreference, userLat, userLng, userArea, destLat, destLng, destArea, 0, true);
   }
 
   if (t === 'back_menu') {
@@ -452,14 +463,16 @@ async function showRideDetail(phone, rideId, ridePreference, userLat, userLng, u
   }
   seatBtns.push({ id: 'back_list', title: '← Back' });
 
+  const routeCmdStr = ride.RouteCommand ? `\n📝 Route: _${ride.RouteCommand}_` : '';
   return waClient.sendButtons(phone,
-    `🚗 *Ride Details*${prefLabel}\n\n` +
-    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
+    `🚗 *Ride Details* | #${ride.RideID}${prefLabel}\n\n` +
+    `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Available: ${available} seat(s)\n` +
     `💰 Price: ${price}${distNote}\n` +
-    `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}\n\n` +
+    `🚗 Vehicle: ${vehicleLabel}${vehicleNumStr}` +
+    `${routeCmdStr}\n\n` +
     `How many seats do you need?`,
     seatBtns
   );

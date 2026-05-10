@@ -5,16 +5,16 @@ const { getDb } = require('../db/database');
 function createRide({ driverId, vehicleName = null, vehicleNumber = null, pickupLocation, pickupLat, pickupLng,
                        destination, destLat, destLng, departureTime,
                        totalSeats, pricePerSeat, vehicleType,
-                       distanceKm = 0, ridePreference = 'all', isRecurring = 0 }) {
+                       distanceKm = 0, ridePreference = 'all', isRecurring = 0, routeCommand = null }) {
   const result = getDb().prepare(`
     INSERT INTO Rides
       (DriverID, VehicleName, VehicleNumber, PickupLocation, PickupLat, PickupLng,
        Destination, DestLat, DestLng, DepartureTime, TotalSeats,
-       PricePerSeat, VehicleType, DistanceKm, RidePreference, IsRecurring)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       PricePerSeat, VehicleType, DistanceKm, RidePreference, IsRecurring, RouteCommand)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(driverId, vehicleName, vehicleNumber, pickupLocation, pickupLat, pickupLng,
          destination, destLat, destLng, departureTime,
-         totalSeats, pricePerSeat, vehicleType, distanceKm, ridePreference, isRecurring);
+         totalSeats, pricePerSeat, vehicleType, distanceKm, ridePreference, isRecurring, routeCommand);
 
   return getRideById(result.lastInsertRowid);
 }

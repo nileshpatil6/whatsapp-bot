@@ -53,6 +53,7 @@ async function handle(phone, text, session) {
     case STEPS.OFFER_ASK_SEATS:        return handleSeats(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE:      return handleVehicle(phone, text, session);
     case STEPS.OFFER_ASK_VEHICLE_NUM:  return handleVehicleNum(phone, text, session);
+    case STEPS.OFFER_ASK_ROUTE_CMD:    return handleRouteCmd(phone, text, session);
     case STEPS.OFFER_CONFIRM:          return handleConfirm(phone, text, session);
     default: return start(phone);
   }
@@ -313,24 +314,14 @@ async function handleTime(phone, text, session) {
   if (s.vehicleType && s.totalSeats && s.ridePreference) {
     // Repeat path — all route data loaded
     if (s.vehicleNumber) {
-      // Vehicle number also available — go straight to confirm
-      sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { departureTime, departureDisplay: display } });
-      const updated = sessionManager.getSession(phone).data;
-      const vehicleLabel = updated.vehicleType.charAt(0).toUpperCase() + updated.vehicleType.slice(1);
+      // Vehicle number also available — ask for route command then confirm
+      sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_ROUTE_CMD, data: { departureTime, departureDisplay: display } });
       return waClient.sendButtons(phone,
-        `📋 *Ride Summary*\n\n` +
-        `📍 From: ${updated.pickupText}\n` +
-        `🏁 To: ${updated.destText}\n` +
-        `📏 Distance: ~${(updated.distanceKm || 0).toFixed(1)} km\n` +
-        `🕐 Time: ${display}\n` +
-        `💺 Seats: ${updated.totalSeats}\n` +
-        `💰 Price: ₹${updated.pricePerSeat}/seat\n` +
-        `🚗 Vehicle: ${vehicleLabel} (${updated.vehicleNumber})\n\n` +
-        'Confirm this ride?',
-        [
-          { id: 'offer_yes', title: '✅ Yes, Post Ride' },
-          { id: 'offer_no',  title: '❌ Cancel' },
-        ]
+        `📝 *Route Command* _(optional)_\n\n` +
+        `Describe the route you'll take:\n_e.g. Wipro Circle → ICICI Towers via ORR → Kompally_\n\n` +
+        `Helps commuters know which roads you'll use.\n\n` +
+        `Type your route or tap Skip:`,
+        [{ id: 'route_skip', title: '⏭️ Skip' }]
       );
     }
     // No vehicle number — ask for it
@@ -429,12 +420,27 @@ async function handleVehicleNum(phone, text, session) {
     );
   }
 
-  sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { vehicleNumber: vNum } });
+  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_ROUTE_CMD, data: { vehicleNumber: vNum } });
+  return waClient.sendButtons(phone,
+    `📝 *Route Command* _(optional)_\n\n` +
+    `Describe the route you'll take:\n_e.g. Wipro Circle → ICICI Towers via ORR → Kompally_\n\n` +
+    `Helps commuters know which roads you'll use.\n\n` +
+    `Type your route or tap Skip:`,
+    [{ id: 'route_skip', title: '⏭️ Skip' }]
+  );
+}
+
+async function handleRouteCmd(phone, text, session) {
+  const t = text.trim().toLowerCase();
+  const routeCommand = (t === 'route_skip' || t === '⏭️ skip' || t === 'skip') ? '' : text.trim();
+
+  sessionManager.setSession(phone, { step: STEPS.OFFER_CONFIRM, data: { routeCommand } });
   const s = sessionManager.getSession(phone).data;
 
   const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
+  const routeStr = s.routeCommand ? `\n📝 Route: _${s.routeCommand}_` : '';
 
-  await waClient.sendButtons(phone,
+  return waClient.sendButtons(phone,
     `📋 *Ride Summary*\n\n` +
     `📍 From: ${s.pickupText}\n` +
     `🏁 To: ${s.destText}\n` +
@@ -442,7 +448,8 @@ async function handleVehicleNum(phone, text, session) {
     `🕐 Time: ${s.departureDisplay}\n` +
     `💺 Seats: ${s.totalSeats}\n` +
     `💰 Price: ₹${s.pricePerSeat}/seat\n` +
-    `🚗 Vehicle: ${vehicleLabel} (${vNum})\n\n` +
+    `🚗 Vehicle: ${vehicleLabel} (${s.vehicleNumber})` +
+    `${routeStr}\n\n` +
     'Confirm this ride?',
     [
       { id: 'offer_yes', title: '✅ Yes, Post Ride' },
@@ -488,6 +495,7 @@ async function handleConfirm(phone, text, session) {
     vehicleType:    s.vehicleType,
     ridePreference: 'all',
     distanceKm:     s.distanceKm,
+    routeCommand:   s.routeCommand || null,
   });
 
   sessionManager.clearSession(phone);
@@ -503,14 +511,15 @@ async function handleConfirm(phone, text, session) {
     `📏 Distance: ~${(s.distanceKm || 0).toFixed(1)} km\n` +
     `🕐 ${s.departureDisplay}\n` +
     `💺 ${s.totalSeats} seat(s) | 💰 ₹${s.pricePerSeat}/seat\n` +
-    `🚗 ${vehicleLabel}${vehicleStr}\n\n` +
-    '✅ Colleagues can now find and book your ride.\n' +
+    `🚗 ${vehicleLabel}${vehicleStr}\n` +
+    (s.routeCommand ? `📝 Route: _${s.routeCommand}_\n` : '') +
+    '\n✅ Colleagues can now find and book your ride.\n' +
     "📲 You'll get a Telegram notification when someone books!\n\n" +
     '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your passengers.'
   );
 
   return waClient.sendButtons(phone,
-    '_What would you like to do next?_',
+  
     [
       { id: 'pf_menu', title: '📋 Main Menu' },
     ]

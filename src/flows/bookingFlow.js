@@ -26,7 +26,7 @@ async function start(phone, ride, seatsNeeded) {
 
   await waClient.sendButtons(phone,
     `📋 *Booking Summary*\n\n` +
-    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
+    `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats: ${seats}\n` +
@@ -141,9 +141,7 @@ async function handle(phone, text, session) {
   // Notify driver (fire and forget)
   if (driver) {
     waClient.sendText(driver.Phone,
-      formatDriverNotification(booking, updatedRide, passenger) +
-      `\n\n🎫 *Passenger's Ride Code: ${verificationCode}*\n` +
-      '_Ask passenger to confirm this code before you depart._'
+      formatDriverNotification(booking, updatedRide, passenger)
     ).catch(err => console.error('[Booking] Driver notify failed:', err.message));
   }
 }

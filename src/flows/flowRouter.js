@@ -78,7 +78,7 @@ async function route(phone, text) {
 
     // 3. OTP
     await waClient.sendText(phone,
-      `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your driver before boarding._`
+      `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your rider before boarding._`
     );
 
     // 4. Full booking details
@@ -90,10 +90,10 @@ async function route(phone, text) {
     // 6. Location sharing tip + all set
     await waClient.sendText(phone,
       '📍 *Location Sharing (Optional)*\n\n' +
-      'Keep your driver updated:\n' +
+      'Keep your rider updated:\n' +
       '• Tap 📎 → *Location* in this chat\n' +
       '• Share current location or search\n\n' +
-      'Bot will forward it to your driver. 🛡️'
+      'Bot will forward it to your rider. 🛡️'
     );
     return waClient.sendButtons(phone,
       '🎉 *All set! Enjoy your ride.*',
@@ -267,7 +267,7 @@ async function routeLocation(phone, locationData) {
         );
       }
       return waClient.sendText(phone,
-        `✅ Your location has been forwarded to your driver *${driver.Name}*.\n\n` +
+        `✅ Your location has been forwarded to your rider *${driver.Name}*.\n\n` +
         '_Keep sharing your location for a safe ride! 🛡️_'
       );
     }
@@ -324,14 +324,14 @@ async function handleBoardingCode(phone, code, driver, rideId) {
   if (!booking) {
     return waClient.sendText(phone,
       '❌ *Invalid code.*\n\n' +
-      'That code doesn\'t match any passenger on this ride.\n' +
-      '_Ask the passenger to check their booking confirmation for the correct 4-digit Ride Code._'
+      'That code doesn\'t match any commuter on this ride.\n' +
+      '_Ask the commuter to check their booking confirmation for the correct 4-digit Ride Code._'
     );
   }
 
   // Confirm to driver
   await waClient.sendText(phone,
-    `✅ *Passenger Confirmed!*\n\n` +
+    `✅ *Commuter Confirmed!*\n\n` +
     `👤 ${booking.PassengerName} is on board.\n` +
     `💺 ${booking.SeatsBooked} seat(s) | ${booking.PickupLocation} → ${booking.Destination}\n\n` +
     '_Have a safe ride! 🚗_'
@@ -340,7 +340,7 @@ async function handleBoardingCode(phone, code, driver, rideId) {
   // Notify passenger
   waClient.sendText(booking.PassengerPhone,
     `✅ *Boarding Confirmed!*\n\n` +
-    `Your driver has verified your code.\n` +
+    `Your rider has verified your code.\n` +
     `🚗 You\'re on the right ride — enjoy the journey!\n\n` +
     '_Safe ride! 🛡️_'
   ).catch(err => console.error('[BoardingCode] Passenger notify failed:', err.message));
