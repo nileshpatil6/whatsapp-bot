@@ -43,6 +43,13 @@ async function start(phone, user) {
 // ─── Text input dispatcher ────────────────────────────────────────────────────
 
 async function handle(phone, text, session) {
+  const _t = text.trim().toLowerCase();
+  if (['cancel', 'offer_cancel', '❌ cancel'].includes(_t) && session.step !== STEPS.OFFER_CONFIRM) {
+    sessionManager.clearSession(phone);
+    const _u = userService.getUserByPhone(phone);
+    await waClient.sendText(phone, 'Cancelled.');
+    return require('./mainMenuFlow').show(phone, _u);
+  }
   switch (session.step) {
     case STEPS.OFFER_ASK_REPEAT:       return handleRepeat(phone, text, session);
     case STEPS.OFFER_ASK_PICKUP_LOC:   return handlePickupText(phone, text, session);
@@ -78,58 +85,37 @@ async function handleRepeat(phone, text, session) {
   const { lastRide } = session.data;
 
   if (['repeat_yes', 'yes', '✅ same route'].includes(t)) {
-    const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, lastRide.VehicleType || 'car');
-    sessionManager.setSession(phone, {
-      step: STEPS.OFFER_ASK_TIME,
-      data: {
-        pickupText:     lastRide.PickupLocation,
-        pickupLat:      lastRide.PickupLat,
-        pickupLng:      lastRide.PickupLng,
-        destText:       lastRide.Destination,
-        destLat:        lastRide.DestLat,
-        destLng:        lastRide.DestLng,
-        vehicleType:    lastRide.VehicleType,
-        totalSeats:     lastRide.TotalSeats,
-        ridePreference: lastRide.RidePreference,
-        distanceKm:     lastRide.DistanceKm || 0,
-        vehicleNumber:  lastRide.VehicleNumber || null,
-        pricePerSeat,
-      },
-    });
-    return waClient.sendText(phone,
-      `✅ *Same Route Loaded*\n\n` +
-      `📍 ${lastRide.PickupLocation} → ${lastRide.Destination}\n\n` +
-      `🕐 *What time is the departure?*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_\n\n` +
-      '_Reply *cancel* to go back._'
-    );
+    const user = userService.getUserByPhone(phone);
+    const dep = tomorrowSameTime(lastRide.DepartureTime);
+    const departureTime = formatDateForDb(dep);
+    const departureDisplay = formatDepartureTime(departureTime);
+    const vNum = (user && user.VehicleNumber) || lastRide.VehicleNumber || null;
+    const vType = (user && user.VehicleType) || lastRide.VehicleType || 'car';
+    const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, vType);
+    const data = {
+      pickupText: lastRide.PickupLocation, pickupLat: lastRide.PickupLat, pickupLng: lastRide.PickupLng,
+      destText: lastRide.Destination, destLat: lastRide.DestLat, destLng: lastRide.DestLng,
+      vehicleType: vType, totalSeats: lastRide.TotalSeats, ridePreference: lastRide.RidePreference,
+      distanceKm: lastRide.DistanceKm || 0, vehicleNumber: vNum, pricePerSeat, departureTime, departureDisplay,
+    };
+    return loadedRouteContinue(phone, data, `✅ *Same Route Loaded*`, vNum, vType);
   }
 
   if (['repeat_return', '🔄 return ride'].includes(t)) {
-    // Swap pickup and destination
-    const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, lastRide.VehicleType || 'car');
-    sessionManager.setSession(phone, {
-      step: STEPS.OFFER_ASK_TIME,
-      data: {
-        pickupText:     lastRide.Destination,
-        pickupLat:      lastRide.DestLat,
-        pickupLng:      lastRide.DestLng,
-        destText:       lastRide.PickupLocation,
-        destLat:        lastRide.PickupLat,
-        destLng:        lastRide.PickupLng,
-        vehicleType:    lastRide.VehicleType,
-        totalSeats:     lastRide.TotalSeats,
-        ridePreference: lastRide.RidePreference,
-        distanceKm:     lastRide.DistanceKm || 0,
-        vehicleNumber:  lastRide.VehicleNumber || null,
-        pricePerSeat,
-      },
-    });
-    return waClient.sendText(phone,
-      `🔄 *Return Ride Loaded*\n\n` +
-      `📍 ${lastRide.Destination} → ${lastRide.PickupLocation}\n\n` +
-      `🕐 *What time is the departure?*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_\n\n` +
-      '_Reply *cancel* to go back._'
-    );
+    const user = userService.getUserByPhone(phone);
+    const dep = tomorrowSameTime(lastRide.DepartureTime);
+    const departureTime = formatDateForDb(dep);
+    const departureDisplay = formatDepartureTime(departureTime);
+    const vNum = (user && user.VehicleNumber) || lastRide.VehicleNumber || null;
+    const vType = (user && user.VehicleType) || lastRide.VehicleType || 'car';
+    const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, vType);
+    const data = {
+      pickupText: lastRide.Destination, pickupLat: lastRide.DestLat, pickupLng: lastRide.DestLng,
+      destText: lastRide.PickupLocation, destLat: lastRide.PickupLat, destLng: lastRide.PickupLng,
+      vehicleType: vType, totalSeats: lastRide.TotalSeats, ridePreference: lastRide.RidePreference,
+      distanceKm: lastRide.DistanceKm || 0, vehicleNumber: vNum, pricePerSeat, departureTime, departureDisplay,
+    };
+    return loadedRouteContinue(phone, data, `🔄 *Return Ride Loaded*`, vNum, vType);
   }
 
   // "New Ride"
@@ -240,8 +226,9 @@ async function processDestLocation(phone, loc, session) {
   });
 
   const distNote = distanceKm > 0 ? `\n📏 Distance: ~${distanceKm.toFixed(1)} km` : '';
-  await waClient.sendText(phone,
-    `✅ Destination: *${displayName}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
+  await waClient.sendButtons(phone,
+    `✅ Destination: *${displayName}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`,
+    [{ id: 'offer_cancel', title: '❌ Cancel' }]
   );
 }
 
@@ -295,8 +282,9 @@ async function applyDestLocation(phone, destText, lat, lng, session) {
     data: { destText, destLat: lat, destLng: lng, distanceKm },
   });
   const distNote = distanceKm > 0 ? `\n📏 Distance: ~${distanceKm.toFixed(1)} km` : '';
-  await waClient.sendText(phone,
-    `✅ Destination: *${destText}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`
+  await waClient.sendButtons(phone,
+    `✅ Destination: *${destText}*${distNote}\n\n🕐 *Departure Time:*\n_(e.g. 09:00, 17:30 or tomorrow 08:30)_`,
+    [{ id: 'offer_cancel', title: '❌ Cancel' }]
   );
 }
 
@@ -368,13 +356,29 @@ async function handleSeats(phone, text, session) {
   if (seats > 1) {
     const s = sessionManager.getSession(phone).data;
     const distanceKm = s.distanceKm || 0;
+    const user = userService.getUserByPhone(phone);
+    if (user && user.VehicleNumber) {
+      const vType = user.VehicleType || 'car';
+      const vehicleLabel = vType.charAt(0).toUpperCase() + vType.slice(1);
+      const pricePerSeat = mapsService.calculatePrice(distanceKm, vType);
+      sessionManager.setSession(phone, {
+        step: STEPS.OFFER_ASK_ROUTE_CMD,
+        data: { totalSeats: seats, vehicleType: vType, vehicleNumber: user.VehicleNumber, ridePreference: 'all', pricePerSeat },
+      });
+      return waClient.sendButtons(phone,
+        `✅ ${seats} seats | 🚗 ${vehicleLabel} (${user.VehicleNumber})\n\n` +
+        `📝 *Route Command* _(optional)_\nDescribe your route or tap Skip:`,
+        [{ id: 'route_skip', title: '⏭️ Skip' }, { id: 'offer_cancel', title: '❌ Cancel' }]
+      );
+    }
     const pricePerSeat = mapsService.calculatePrice(distanceKm, 'car');
     sessionManager.setSession(phone, {
       step: STEPS.OFFER_ASK_VEHICLE_NUM,
       data: { totalSeats: seats, vehicleType: 'car', ridePreference: 'all', pricePerSeat },
     });
-    return waClient.sendText(phone,
-      `✅ ${seats} seats | 🚗 Car\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
+    return waClient.sendButtons(phone,
+      `✅ ${seats} seats | 🚗 Car\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`,
+      [{ id: 'offer_cancel', title: '❌ Cancel' }]
     );
   }
 
@@ -405,9 +409,20 @@ async function handleVehicle(phone, text, session) {
   const s = sessionManager.getSession(phone).data;
   const distanceKm = s.distanceKm || 0;
   const pricePerSeat = mapsService.calculatePrice(distanceKm, vehicleType);
+  const vehicleLabel = vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1);
+  const user = userService.getUserByPhone(phone);
+  if (user && user.VehicleNumber) {
+    sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_ROUTE_CMD, data: { vehicleType, vehicleNumber: user.VehicleNumber, ridePreference: 'all', pricePerSeat } });
+    return waClient.sendButtons(phone,
+      `✅ Vehicle: *${vehicleLabel}* (${user.VehicleNumber})\n\n` +
+      `📝 *Route Command* _(optional)_\nDescribe your route or tap Skip:`,
+      [{ id: 'route_skip', title: '⏭️ Skip' }, { id: 'offer_cancel', title: '❌ Cancel' }]
+    );
+  }
   sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data: { vehicleType, ridePreference: 'all', pricePerSeat } });
-  await waClient.sendText(phone,
-    `✅ Vehicle: *${vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1)}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`
+  return waClient.sendButtons(phone,
+    `✅ Vehicle: *${vehicleLabel}*\n\n🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`,
+    [{ id: 'offer_cancel', title: '❌ Cancel' }]
   );
 }
 
@@ -424,9 +439,8 @@ async function handleVehicleNum(phone, text, session) {
   return waClient.sendButtons(phone,
     `📝 *Route Command* _(optional)_\n\n` +
     `Describe the route you'll take:\n_e.g. Wipro Circle → ICICI Towers via ORR → Kompally_\n\n` +
-    `Helps commuters know which roads you'll use.\n\n` +
-    `Type your route or tap Skip:`,
-    [{ id: 'route_skip', title: '⏭️ Skip' }]
+    `Helps commuters know which roads you'll use.\n\nType your route or tap Skip:`,
+    [{ id: 'route_skip', title: '⏭️ Skip' }, { id: 'offer_cancel', title: '❌ Cancel' }]
   );
 }
 
@@ -498,6 +512,7 @@ async function handleConfirm(phone, text, session) {
     routeCommand:   s.routeCommand || null,
   });
 
+  if (s.vehicleNumber) userService.saveVehicleInfo(phone, s.vehicleType, s.vehicleNumber);
   sessionManager.clearSession(phone);
   console.log(`[OfferRide] Ride #${ride.RideID} by ${user.Name}`);
 
@@ -527,37 +542,70 @@ async function handleConfirm(phone, text, session) {
 async function startWithRoute(phone, user, savedRoute) {
   if (!user) user = userService.getUserByPhone(phone);
 
-  const pricePerSeat = mapsService.calculatePrice(savedRoute.distanceKm || 0, savedRoute.vehicleType || 'car');
+  const vNum = (user && user.VehicleNumber) || savedRoute.vehicleNumber || null;
+  const vType = (user && user.VehicleType) || savedRoute.vehicleType || 'car';
+  const pricePerSeat = mapsService.calculatePrice(savedRoute.distanceKm || 0, vType);
 
-  sessionManager.setSession(phone, {
-    flow: FLOWS.OFFER_RIDE,
-    step: STEPS.OFFER_ASK_TIME,
-    data: {
-      pickupText:     savedRoute.pickupText,
-      pickupLat:      savedRoute.pickupLat,
-      pickupLng:      savedRoute.pickupLng,
-      destText:       savedRoute.destText,
-      destLat:        savedRoute.destLat,
-      destLng:        savedRoute.destLng,
-      vehicleType:    savedRoute.vehicleType,
-      totalSeats:     savedRoute.totalSeats,
-      ridePreference: savedRoute.ridePreference,
-      distanceKm:     savedRoute.distanceKm || 0,
-      vehicleNumber:  savedRoute.vehicleNumber || null,
-      pricePerSeat,
-    },
-  });
+  let departureTime = null;
+  let departureDisplay = null;
+  if (savedRoute.departureTime) {
+    const dep = tomorrowSameTime(savedRoute.departureTime);
+    departureTime = formatDateForDb(dep);
+    departureDisplay = formatDepartureTime(departureTime);
+  }
 
-  await waClient.sendText(phone,
-    `✅ *Same Route Loaded*\n\n` +
-    `📍 ${savedRoute.pickupText} → ${savedRoute.destText}\n\n` +
-    `🕐 *What time is the departure tomorrow?*\n_(e.g. 09:00, 08:30)_\n\n` +
-    '_Reply *cancel* to go back._'
-  );
+  const data = {
+    pickupText: savedRoute.pickupText, pickupLat: savedRoute.pickupLat, pickupLng: savedRoute.pickupLng,
+    destText: savedRoute.destText, destLat: savedRoute.destLat, destLng: savedRoute.destLng,
+    vehicleType: vType, totalSeats: savedRoute.totalSeats, ridePreference: savedRoute.ridePreference,
+    distanceKm: savedRoute.distanceKm || 0, vehicleNumber: vNum, pricePerSeat, departureTime, departureDisplay,
+  };
+
+  sessionManager.setSession(phone, { flow: FLOWS.OFFER_RIDE, step: STEPS.OFFER_ASK_TIME, data });
+  if (!departureTime) {
+    return waClient.sendButtons(phone,
+      `✅ *Same Route Loaded*\n\n📍 ${savedRoute.pickupText} → ${savedRoute.destText}\n\n` +
+      `🕐 *What time is the departure tomorrow?*\n_(e.g. 09:00, 08:30)_`,
+      [{ id: 'offer_cancel', title: '❌ Cancel' }]
+    );
+  }
+  return loadedRouteContinue(phone, data, `✅ *Same Route Loaded*`, vNum, vType);
 }
 
 function trunc(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
+}
+
+function tomorrowSameTime(departureDateStr) {
+  const last = new Date(departureDateStr.replace(' ', 'T'));
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(last.getHours(), last.getMinutes(), 0, 0);
+  return d;
+}
+
+// After auto-loading route+time, go to route cmd or vehicle num
+async function loadedRouteContinue(phone, data, header, vNum, vType) {
+  const vehicleLabel = vType.charAt(0).toUpperCase() + vType.slice(1);
+  if (vNum) {
+    sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_ROUTE_CMD, data });
+    return waClient.sendButtons(phone,
+      `${header}\n\n` +
+      `📍 ${data.pickupText} → ${data.destText}\n` +
+      `🕐 ${data.departureDisplay}\n` +
+      `🚗 ${vehicleLabel} (${vNum}) | 💺 ${data.totalSeats} seat(s)\n\n` +
+      `📝 *Route Command* _(optional)_\nDescribe your route or tap Skip:`,
+      [{ id: 'route_skip', title: '⏭️ Skip' }, { id: 'offer_cancel', title: '❌ Cancel' }]
+    );
+  }
+  sessionManager.setSession(phone, { step: STEPS.OFFER_ASK_VEHICLE_NUM, data });
+  return waClient.sendButtons(phone,
+    `${header}\n\n` +
+    `📍 ${data.pickupText} → ${data.destText}\n` +
+    `🕐 ${data.departureDisplay}\n\n` +
+    `🔑 *Vehicle Number:*\n_(e.g. TS09AB1234)_`,
+    [{ id: 'offer_cancel', title: '❌ Cancel' }]
+  );
 }
 
 module.exports = { start, startWithRoute, handle, handleLocation };

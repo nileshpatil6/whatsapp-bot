@@ -114,6 +114,8 @@ function initializeDb() {
     "ALTER TABLE Users ADD COLUMN TotalEarnings REAL NOT NULL DEFAULT 0",
     "ALTER TABLE Users ADD COLUMN ContactPhone TEXT",
     "ALTER TABLE Rides ADD COLUMN RouteCommand TEXT",
+    "ALTER TABLE Users ADD COLUMN VehicleNumber TEXT",
+    "ALTER TABLE Users ADD COLUMN VehicleType TEXT",
   ];
   for (const sql of migrations) {
     try { db.exec(sql); } catch (_) { /* column already exists */ }

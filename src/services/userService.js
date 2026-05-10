@@ -37,4 +37,8 @@ function addEarnings(userId, amount) {
   getDb().prepare('UPDATE Users SET TotalEarnings = TotalEarnings + ? WHERE UserID = ?').run(amount, userId);
 }
 
-module.exports = { getUserByPhone, getUserById, createUser, updateContactPhone, markDisclaimerSeen, updateRating, addEarnings };
+function saveVehicleInfo(phone, vehicleType, vehicleNumber) {
+  getDb().prepare('UPDATE Users SET VehicleType = ?, VehicleNumber = ? WHERE Phone = ?').run(vehicleType, vehicleNumber, phone);
+}
+
+module.exports = { getUserByPhone, getUserById, createUser, updateContactPhone, markDisclaimerSeen, updateRating, addEarnings, saveVehicleInfo };
