@@ -31,7 +31,7 @@ async function start(phone, ride, seatsNeeded) {
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats: ${seats}\n` +
     `💰 Total: ${priceStr}\n\n` +
-    `_Payment directly to driver via UPI or Cash._\n\n` +
+    `_Payment directly to rider via UPI or Cash._\n\n` +
     `Confirm booking?`,
     [
       { id: 'book_yes', title: '✅ Confirm Booking' },
@@ -98,7 +98,7 @@ async function handle(phone, text, session) {
   // 2. Security check — full details + OTP revealed after user confirms
   await waClient.sendButtons(phone,
     `🔐 *Security Check*\n\n` +
-    `Verify the driver is from your organisation before sharing the OTP.\n` +
+    `Verify the rider is from your organisation before sharing the OTP.\n` +
     `If unsure, do not share.\n\n` +
     `_Loopz is for internal corporate use only._`,
     [{ id: `sec_confirm_${booking.BookingID}`, title: '✅ Confirm: loopmate is from my org' }]

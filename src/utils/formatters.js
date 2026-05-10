@@ -100,7 +100,7 @@ function formatBookingConfirmation(booking, ride, driver) {
 function formatSafetyInfo() {
   return (
     '🛡️ *Safety & Responsibility*\n\n' +
-    '• Check driver name/contact before ride\n' +
+    '• Check rider name/contact before ride\n' +
     '• Share trip details with your ride partner\n' +
     '• Use Live Location if needed\n\n' +
     '🚨 *Emergency:* 100\n\n' +
