@@ -107,6 +107,12 @@ async function route(phone, text) {
   const user = userService.getUserByPhone(phone);
   const session = sessionManager.getSession(phone);
 
+  // --- Global: passenger marks trip complete after boarding confirmation ---
+  if (norm.startsWith('passenger_mark_complete_') && user) {
+    const bookingId = parseInt(norm.replace('passenger_mark_complete_', ''), 10);
+    return handlePassengerMarkComplete(phone, bookingId, user);
+  }
+
   // --- Global shortcut: cancel (must be registered) ---
   if (CANCEL_CMDS.has(norm) && user) {
     sessionManager.clearSession(phone);
@@ -337,13 +343,25 @@ async function handleBoardingCode(phone, code, driver, rideId) {
     '_Have a safe ride! 🚗_'
   );
 
-  // Notify passenger
-  waClient.sendText(booking.PassengerPhone,
+  // Notify passenger with completion CTA
+  waClient.sendButtons(booking.PassengerPhone,
     `✅ *Boarding Confirmed!*\n\n` +
     `Your rider has verified your code.\n` +
     `🚗 You\'re on the right ride — enjoy the journey!\n\n` +
-    '_Safe ride! 🛡️_'
+    '_Safe ride! 🛡️_',
+    [{ id: `passenger_mark_complete_${booking.BookingID}`, title: '✅ Mark Complete' }]
   ).catch(err => console.error('[BoardingCode] Passenger notify failed:', err.message));
+}
+
+async function handlePassengerMarkComplete(phone, bookingId, user) {
+  if (!bookingId) {
+    return waClient.sendText(phone, '❌ Could not find booking. Open *My Bookings* and try again.');
+  }
+  const booking = bookingService.getBookingById(bookingId);
+  if (!booking || booking.UserID !== user.UserID) {
+    return waClient.sendText(phone, '❌ Booking not found for your account.');
+  }
+  return getFlow('feedback').start(phone, bookingId, 'passenger');
 }
 
 async function routeContact(phone, contactPhone) {
