@@ -161,9 +161,10 @@ async function route(phone, text) {
     bookingService.cancelBooking(bookingId);
     await waClient.sendText(phone, `❌ You rejected the booking. Seat(s) have been freed.`);
     if (passenger) {
+      sessionManager.clearSession(passenger.Phone);
       waClient.sendButtons(passenger.Phone,
         `😔 Unfortunately your driver couldn't accept your booking for\n*${ride ? ride.PickupLocation + ' → ' + ride.Destination : 'your ride'}*.\n\nPlease search for another ride.`,
-        [{ id: 'menu_2', title: '🔍 Find Another Ride' }]
+        [{ id: 'menu_2', title: '🔍 Find Another Ride' }, { id: 'pf_menu', title: '📋 Main Menu' }]
       ).catch(() => {});
     }
     return;
