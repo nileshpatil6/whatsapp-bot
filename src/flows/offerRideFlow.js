@@ -531,11 +531,11 @@ async function handleConfirm(phone, text, session) {
     (s.routeCommand ? `📝 Route: _${s.routeCommand}_\n` : '') +
     '\n✅ Colleagues can now find and book your ride.\n' +
     "📲 You'll get a Telegram notification when someone books!\n\n" +
-    `🔗 Share ride in your community to join: t.me/${botName}\n\n` +
-    '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your commuters.'
+    `📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your commuters.\n` +
+    `🔗 Share ride in your community to join: t.me/${botName}`,
   );
 
-  return waClient.sendButtons(phone, '👇',
+  return waClient.sendButtons(phone, '🏠 Main Menu',
     [{ id: 'pf_menu', title: '📋 Main Menu' }]
   );
 }
