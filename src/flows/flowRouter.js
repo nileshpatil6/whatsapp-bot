@@ -113,6 +113,62 @@ async function route(phone, text) {
     return handlePassengerMarkComplete(phone, bookingId, user);
   }
 
+  // --- Global: share ride (after posting) ---
+  if (norm.startsWith('share_ride_')) {
+    const rideId = parseInt(norm.replace('share_ride_', ''), 10);
+    const ride = rideService.getRideById(rideId);
+    if (!ride) return waClient.sendButtons(phone, '❌ Ride not found.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
+    const { formatDepartureTime } = require('../utils/formatters');
+    const available = ride.TotalSeats - ride.BookedSeats;
+    const priceStr = ride.PricePerSeat === 0 ? 'Free' : `₹${ride.PricePerSeat}/seat`;
+    const botName = process.env.TELEGRAM_BOT_USERNAME || 'loopzride_bot';
+    const shareText =
+      `🚗 *Ride Available on LoopZ!*\n\n` +
+      `📍 ${ride.PickupLocation} → ${ride.Destination}\n` +
+      `🕐 ${formatDepartureTime(ride.DepartureTime)}\n` +
+      `💺 ${available} seat(s) | 💰 ${priceStr}\n\n` +
+      `Find & book on LoopZ 👉 t.me/${botName}`;
+    await waClient.sendText(phone, shareText);
+    return waClient.sendButtons(phone, '_Copy the message above and share it in your group!_',
+      [{ id: 'pf_menu', title: '📋 Main Menu' }]
+    );
+  }
+
+  // --- Global: driver accepts booking ---
+  if (norm.startsWith('booking_accept_')) {
+    const bookingId = parseInt(norm.replace('booking_accept_', ''), 10);
+    const booking = bookingService.getBookingById(bookingId);
+    if (!booking) return waClient.sendText(phone, '❌ Booking not found.');
+    const passenger = userService.getUserById(booking.UserID);
+    await waClient.sendText(phone, `✅ You accepted the booking from *${passenger ? passenger.Name : 'the commuter'}*.`);
+    if (passenger) {
+      waClient.sendText(passenger.Phone,
+        `🎉 *Great news!* Your driver has accepted your booking.\n\n` +
+        `📍 Be at the pickup point on time. Safe ride! 🚗`
+      ).catch(() => {});
+    }
+    return;
+  }
+
+  // --- Global: driver rejects booking ---
+  if (norm.startsWith('booking_reject_')) {
+    const bookingId = parseInt(norm.replace('booking_reject_', ''), 10);
+    const booking = bookingService.getBookingById(bookingId);
+    if (!booking) return waClient.sendText(phone, '❌ Booking not found.');
+    const passenger = userService.getUserById(booking.UserID);
+    const ride = rideService.getRideById(booking.RideID);
+    // Cancel booking (also restores seats automatically)
+    bookingService.cancelBooking(bookingId);
+    await waClient.sendText(phone, `❌ You rejected the booking. Seat(s) have been freed.`);
+    if (passenger) {
+      waClient.sendButtons(passenger.Phone,
+        `😔 Unfortunately your driver couldn't accept your booking for\n*${ride ? ride.PickupLocation + ' → ' + ride.Destination : 'your ride'}*.\n\nPlease search for another ride.`,
+        [{ id: 'menu_2', title: '🔍 Find Another Ride' }]
+      ).catch(() => {});
+    }
+    return;
+  }
+
   // --- Global shortcut: cancel (must be registered) ---
   if (CANCEL_CMDS.has(norm) && user) {
     sessionManager.clearSession(phone);

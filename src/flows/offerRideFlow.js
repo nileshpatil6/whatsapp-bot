@@ -533,8 +533,11 @@ async function handleConfirm(phone, text, session) {
     '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your commuters.'
   );
 
-  return waClient.sendButtons(phone, '👇 What would you like to do next?',
-    [{ id: 'pf_menu', title: '📋 Main Menu' }]
+  return waClient.sendButtons(phone, '👇',
+    [
+      { id: `share_ride_${ride.RideID}`, title: '🔗 Share Ride' },
+      { id: 'pf_menu', title: '📋 Main Menu' },
+    ]
   );
 }
 

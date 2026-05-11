@@ -88,14 +88,7 @@ async function handle(phone, text, session) {
 
   console.log(`[Booking] #${booking.BookingID} by ${passenger.Name} for ride #${ride.RideID}`);
 
-  // 1. Brief ride confirmed
-  await waClient.sendText(phone,
-    `✅ *Ride Confirmed!*\n` +
-    `🗺️ ${ride.PickupLocation} → ${ride.Destination}\n` +
-    `🕐 ${formatDepartureTime(ride.DepartureTime)} | 💺 ${seats} seat(s)`
-  );
-
-  // 2. Immediately share ride code and booking details
+  // Ride code first, then full confirmation
   await waClient.sendText(phone,
     `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your rider before boarding._`
   );
@@ -150,10 +143,14 @@ async function handle(phone, text, session) {
     });
   }
 
-  // Notify driver (fire and forget)
+  // Notify driver with Accept/Reject (fire and forget)
   if (driver) {
-    waClient.sendText(driver.Phone,
-      formatDriverNotification(booking, updatedRide, passenger)
+    waClient.sendButtons(driver.Phone,
+      formatDriverNotification(booking, updatedRide, passenger),
+      [
+        { id: `booking_accept_${booking.BookingID}`, title: '✅ Accept' },
+        { id: `booking_reject_${booking.BookingID}`, title: '❌ Reject' },
+      ]
     ).catch(err => console.error('[Booking] Driver notify failed:', err.message));
   }
 }
