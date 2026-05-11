@@ -99,15 +99,14 @@ async function getRouteDistance(lat1, lng1, lat2, lng2) {
   try {
     const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
     const response = await axios.post(url, {
-      origin: { latitude: lat1, longitude: lng1 },
-      destination: { latitude: lat2, longitude: lng2 },
+      origin: { location: { latLng: { latitude: lat1, longitude: lng1 } } },
+      destination: { location: { latLng: { latitude: lat2, longitude: lng2 } } },
       travelMode: 'DRIVE',
-      computeAlternativeRoutes: false,
-      routePreference: 'TRAFFIC_AWARE',
+      routingPreference: 'TRAFFIC_AWARE',
     }, {
       headers: {
         'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY,
-        'Content-Type': 'application/json',
+        'X-Goog-FieldMask': 'routes.distanceMeters',
       },
       timeout: 8000,
     });
