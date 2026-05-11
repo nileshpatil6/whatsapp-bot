@@ -519,6 +519,7 @@ async function handleConfirm(phone, text, session) {
   const vehicleLabel = s.vehicleType.charAt(0).toUpperCase() + s.vehicleType.slice(1);
   const vehicleStr = s.vehicleNumber ? ` (${s.vehicleNumber})` : '';
 
+  const botName = process.env.TELEGRAM_BOT_USERNAME || 'loopzride_bot';
   await waClient.sendText(phone,
     `🎉 *Ride Posted Successfully!*\n\n` +
     `🆔 Ride ID: #${ride.RideID}\n` +
@@ -530,14 +531,12 @@ async function handleConfirm(phone, text, session) {
     (s.routeCommand ? `📝 Route: _${s.routeCommand}_\n` : '') +
     '\n✅ Colleagues can now find and book your ride.\n' +
     "📲 You'll get a Telegram notification when someone books!\n\n" +
+    `🔗 Share ride in your community to join: t.me/${botName}\n\n` +
     '📍 *Tip:* When your ride starts, share your live location here — the bot will forward it to your commuters.'
   );
 
   return waClient.sendButtons(phone, '👇',
-    [
-      { id: `share_ride_${ride.RideID}`, title: '🔗 Share Ride' },
-      { id: 'pf_menu', title: '📋 Main Menu' },
-    ]
+    [{ id: 'pf_menu', title: '📋 Main Menu' }]
   );
 }
 

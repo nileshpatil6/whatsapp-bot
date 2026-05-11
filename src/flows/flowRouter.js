@@ -113,27 +113,6 @@ async function route(phone, text) {
     return handlePassengerMarkComplete(phone, bookingId, user);
   }
 
-  // --- Global: share ride (after posting) ---
-  if (norm.startsWith('share_ride_')) {
-    const rideId = parseInt(norm.replace('share_ride_', ''), 10);
-    const ride = rideService.getRideById(rideId);
-    if (!ride) return waClient.sendButtons(phone, '❌ Ride not found.', [{ id: 'pf_menu', title: '📋 Main Menu' }]);
-    const { formatDepartureTime } = require('../utils/formatters');
-    const available = ride.TotalSeats - ride.BookedSeats;
-    const priceStr = ride.PricePerSeat === 0 ? 'Free' : `₹${ride.PricePerSeat}/seat`;
-    const botName = process.env.TELEGRAM_BOT_USERNAME || 'loopzride_bot';
-    const shareText =
-      `🚗 *Ride Available on LoopZ!*\n\n` +
-      `📍 ${ride.PickupLocation} → ${ride.Destination}\n` +
-      `🕐 ${formatDepartureTime(ride.DepartureTime)}\n` +
-      `💺 ${available} seat(s) | 💰 ${priceStr}\n\n` +
-      `Find & book on LoopZ 👉 t.me/${botName}`;
-    await waClient.sendText(phone, shareText);
-    return waClient.sendButtons(phone, '_Copy the message above and share it in your group!_',
-      [{ id: 'pf_menu', title: '📋 Main Menu' }]
-    );
-  }
-
   // --- Global: driver accepts booking ---
   if (norm.startsWith('booking_accept_')) {
     const bookingId = parseInt(norm.replace('booking_accept_', ''), 10);
