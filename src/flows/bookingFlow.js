@@ -88,11 +88,10 @@ async function handle(phone, text, session) {
 
   console.log(`[Booking] #${booking.BookingID} by ${passenger.Name} for ride #${ride.RideID}`);
 
-  // Ride code first, then full confirmation
+  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
   await waClient.sendText(phone,
     `🎫 *Ride Code: ${booking.VerificationCode}*\n_Show this to your rider before boarding._`
   );
-  await waClient.sendText(phone, formatBookingConfirmation(booking, ride, driver));
   await waClient.sendText(phone, formatSafetyInfo());
   await waClient.sendText(phone,
     '📍 *Location Sharing (Optional)*\n\n' +
