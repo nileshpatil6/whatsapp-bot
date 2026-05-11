@@ -217,7 +217,7 @@ async function processDestLocation(phone, loc, session) {
   const displayName = await mapsService.getDisplayName(loc.lat, loc.lng, loc.name, loc.address);
   const { pickupLat, pickupLng } = session.data;
   const distanceKm = (pickupLat && pickupLng)
-    ? mapsService.haversineDistance(pickupLat, pickupLng, loc.lat, loc.lng)
+    ? await mapsService.getRouteDistance(pickupLat, pickupLng, loc.lat, loc.lng)
     : 0;
 
   sessionManager.setSession(phone, {
@@ -275,7 +275,7 @@ async function handleDestSelect(phone, text, session) {
 async function applyDestLocation(phone, destText, lat, lng, session) {
   const { pickupLat, pickupLng } = session.data;
   const distanceKm = (pickupLat && pickupLng && lat && lng)
-    ? mapsService.haversineDistance(pickupLat, pickupLng, lat, lng)
+    ? await mapsService.getRouteDistance(pickupLat, pickupLng, lat, lng)
     : 0;
   sessionManager.setSession(phone, {
     step: STEPS.OFFER_ASK_TIME,

@@ -89,6 +89,44 @@ function toRad(deg) {
   return (deg * Math.PI) / 180;
 }
 
+// Get actual road distance via Google Maps Routes API (returns km)
+// Falls back to haversine if API fails or key is missing
+async function getRouteDistance(lat1, lng1, lat2, lng2) {
+  if (!process.env.GOOGLE_MAPS_API_KEY) {
+    return haversineDistance(lat1, lng1, lat2, lng2);
+  }
+
+  try {
+    const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+    const response = await axios.post(url, {
+      origin: { latitude: lat1, longitude: lng1 },
+      destination: { latitude: lat2, longitude: lng2 },
+      travelMode: 'DRIVE',
+      computeAlternativeRoutes: false,
+      routePreference: 'TRAFFIC_AWARE',
+    }, {
+      headers: {
+        'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      timeout: 8000,
+    });
+
+    const routes = response.data?.routes;
+    if (!routes || routes.length === 0) {
+      console.warn('[Maps] No route found, falling back to haversine');
+      return haversineDistance(lat1, lng1, lat2, lng2);
+    }
+
+    const distanceMeters = routes[0].distanceMeters || 0;
+    const distanceKm = distanceMeters / 1000;
+    return distanceKm;
+  } catch (err) {
+    console.error('[Maps] Route distance API failed:', err.message);
+    return haversineDistance(lat1, lng1, lat2, lng2);
+  }
+}
+
 // Auto-calculate price per seat based on distance slab and vehicle type
 // Bike: 0-3km ₹9/km | 4-6km ₹8/km | 7-10km ₹7/km | 11-20km ₹6/km | 20+km ₹5/km
 // Car:  0-3km ₹16/km | 4-6km ₹13/km | 7-10km ₹10/km | 11-20km ₹8/km | 21-30km ₹6/km | 30+km ₹5/km
@@ -133,4 +171,4 @@ async function searchPlaces(query) {
   }
 }
 
-module.exports = { geocodeAddress, reverseGeocode, getDisplayName, haversineDistance, calculatePrice, searchPlaces };
+module.exports = { geocodeAddress, reverseGeocode, getDisplayName, haversineDistance, getRouteDistance, calculatePrice, searchPlaces };
