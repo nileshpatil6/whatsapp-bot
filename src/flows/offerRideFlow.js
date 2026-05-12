@@ -535,8 +535,8 @@ async function handleConfirm(phone, text, session) {
     `🔗 Share ride in your community to join: t.me/${botName}`,
   );
 
-  return waClient.sendButtons(phone, '🏠 Main Menu',
-    [{ id: 'pf_menu', title: '📋 Main Menu' }]
+  return waClient.sendButtons(phone, '👇',
+    [{ id: 'pf_menu', title: '🏠 Main Menu' }]
   );
 }
 
