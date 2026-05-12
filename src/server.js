@@ -110,7 +110,7 @@ app.get('/admin/users', (req, res) => {
   const rows = users.map(u => `<tr>
     <td>#${u.UserID}</td>
     <td>${esc(u.Name)}</td>
-    <td>${esc(u.Phone)}</td>
+    <td>${esc(u.ContactPhone||'—')}</td>
     <td>${esc(u.Gender||'—')}</td>
     <td>${u.VehicleOwner==='Yes'?`<span class="badge badge-blue">Driver</span>`:'—'}</td>
     <td>${esc(u.VehicleType||'—')} ${esc(u.VehicleNumber||'')}</td>
@@ -155,12 +155,12 @@ app.get('/admin/bookings', (req, res) => {
   if (!pass) return;
   const db = require('./db/database').getDb();
   const where = req.query.status ? `WHERE b.Status='${req.query.status}'` : '';
-  const bookings = db.prepare(`SELECT b.*,u.Name as PassengerName,u.Phone as PassengerPhone,r.PickupLocation,r.Destination FROM Bookings b LEFT JOIN Users u ON b.UserID=u.UserID LEFT JOIN Rides r ON b.RideID=r.RideID ${where} ORDER BY b.CreatedAt DESC`).all();
+  const bookings = db.prepare(`SELECT b.*,u.Name as PassengerName,u.ContactPhone as PassengerContact,r.PickupLocation,r.Destination FROM Bookings b LEFT JOIN Users u ON b.UserID=u.UserID LEFT JOIN Rides r ON b.RideID=r.RideID ${where} ORDER BY b.CreatedAt DESC`).all();
   const statusBadge = s => s==='confirmed'?'badge-green':s==='cancelled'?'badge-red':'badge-yellow';
   const rows = bookings.map(b => `<tr>
     <td>#${b.BookingID}</td>
     <td>${esc(b.PassengerName||'—')}</td>
-    <td>${esc(b.PassengerPhone||'—')}</td>
+    <td>${esc(b.PassengerContact||'—')}</td>
     <td>#${b.RideID} ${esc(b.PickupLocation||'')} → ${esc(b.Destination||'')}</td>
     <td>${b.SeatsBooked}</td>
     <td>₹${b.TotalAmount}</td>
