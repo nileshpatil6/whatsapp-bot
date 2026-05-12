@@ -78,7 +78,8 @@ app.get('/admin', (req, res) => {
   const s = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch (_) { return {}; } };
 
   const stats = {
-    users:          s('SELECT COUNT(*) as c FROM Users WHERE IsVerified=1').c || 0,
+    riders:         s("SELECT COUNT(*) as c FROM Users WHERE IsVerified=1 AND VehicleOwner='Yes'").c || 0,
+    commuters:      s("SELECT COUNT(*) as c FROM Users WHERE IsVerified=1 AND VehicleOwner='No'").c || 0,
     rides:          s('SELECT COUNT(*) as c FROM Rides').c || 0,
     activeRides:    s("SELECT COUNT(*) as c FROM Rides WHERE Status='active'").c || 0,
     bookings:       s('SELECT COUNT(*) as c FROM Bookings').c || 0,
@@ -92,12 +93,13 @@ app.get('/admin', (req, res) => {
 
   res.send(adminHeader(pass, 'Dashboard') + `
 <div class="stats">
-  ${card(stats.users,       'Registered Users',  `/admin/users?pass=${p}`)}
-  ${card(stats.rides,       'Total Rides',        `/admin/rides?pass=${p}`)}
-  ${card(stats.activeRides, 'Active Rides',       `/admin/rides?pass=${p}&status=active`)}
-  ${card(stats.bookings,    'Total Bookings',     `/admin/bookings?pass=${p}`)}
-  ${card(stats.activeBookings,'Active Bookings',  `/admin/bookings?pass=${p}&status=confirmed`)}
-  ${card(stats.feedback,    'Feedback',           `/admin/feedback?pass=${p}`)}
+  ${card(stats.riders,      '🚗 Riders',          `/admin/users?pass=${p}&role=rider`)}
+  ${card(stats.commuters,   '👤 Commuters',        `/admin/users?pass=${p}&role=commuter`)}
+  ${card(stats.rides,       'Total Rides',         `/admin/rides?pass=${p}`)}
+  ${card(stats.activeRides, 'Active Rides',        `/admin/rides?pass=${p}&status=active`)}
+  ${card(stats.bookings,    'Total Bookings',      `/admin/bookings?pass=${p}`)}
+  ${card(stats.activeBookings,'Active Bookings',   `/admin/bookings?pass=${p}&status=confirmed`)}
+  ${card(stats.feedback,    'Feedback',            `/admin/feedback?pass=${p}`)}
 </div>
 </div></body></html>`);
 });
@@ -106,7 +108,11 @@ app.get('/admin/users', (req, res) => {
   const pass = adminCheck(req, res);
   if (!pass) return;
   const db = require('./db/database').getDb();
-  const users = db.prepare('SELECT * FROM Users WHERE IsVerified=1 ORDER BY CreatedAt DESC').all();
+  const role = req.query.role;
+  const where = role === 'rider' ? "WHERE IsVerified=1 AND VehicleOwner='Yes'" :
+                role === 'commuter' ? "WHERE IsVerified=1 AND VehicleOwner='No'" :
+                'WHERE IsVerified=1';
+  const users = db.prepare(`SELECT * FROM Users ${where} ORDER BY CreatedAt DESC`).all();
   const rows = users.map(u => `<tr>
     <td>#${u.UserID}</td>
     <td>${esc(u.Name)}</td>
@@ -118,8 +124,9 @@ app.get('/admin/users', (req, res) => {
     <td>₹${u.TotalEarnings||0}</td>
     <td>${(u.CreatedAt||'').slice(0,10)}</td>
   </tr>`).join('') || '<tr><td colspan="9" class="empty">No users</td></tr>';
-  res.send(adminHeader(pass, 'Users', `/admin?pass=${encodeURIComponent(pass)}`) + `
-<h2>👥 All Users (${users.length})</h2>
+  const uTitle = role === 'rider' ? '🚗 Riders' : role === 'commuter' ? '👤 Commuters' : '👥 All Users';
+  res.send(adminHeader(pass, uTitle, `/admin?pass=${encodeURIComponent(pass)}`) + `
+<h2>${uTitle} (${users.length})</h2>
 <table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Gender</th><th>Role</th><th>Vehicle</th><th>Rating</th><th>Earnings</th><th>Joined</th></tr></thead>
 <tbody>${rows}</tbody></table></div></body></html>`);
 });
@@ -146,6 +153,7 @@ app.get('/admin/rides', (req, res) => {
   const title = req.query.status ? `${req.query.status} Rides` : 'All Rides';
   res.send(adminHeader(pass, title, `/admin?pass=${encodeURIComponent(pass)}`) + `
 <h2>🚗 ${title} (${rides.length})</h2>
+
 <table><thead><tr><th>ID</th><th>Driver</th><th>Route</th><th>Departure</th><th>Seats</th><th>Price</th><th>Distance</th><th>Vehicle</th><th>Status</th><th>Date</th></tr></thead>
 <tbody>${rows}</tbody></table></div></body></html>`);
 });
