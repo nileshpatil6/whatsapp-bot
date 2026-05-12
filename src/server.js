@@ -78,8 +78,8 @@ app.get('/admin', (req, res) => {
   const s = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch (_) { return {}; } };
 
   const stats = {
-    riders:         s("SELECT COUNT(*) as c FROM Users WHERE IsVerified=1 AND VehicleOwner='Yes'").c || 0,
-    commuters:      s("SELECT COUNT(*) as c FROM Users WHERE IsVerified=1 AND VehicleOwner='No'").c || 0,
+    riders:         s('SELECT COUNT(DISTINCT DriverID) as c FROM Rides').c || 0,
+    commuters:      s('SELECT COUNT(DISTINCT UserID) as c FROM Bookings').c || 0,
     rides:          s('SELECT COUNT(*) as c FROM Rides').c || 0,
     activeRides:    s("SELECT COUNT(*) as c FROM Rides WHERE Status='active'").c || 0,
     bookings:       s('SELECT COUNT(*) as c FROM Bookings').c || 0,
@@ -109,10 +109,11 @@ app.get('/admin/users', (req, res) => {
   if (!pass) return;
   const db = require('./db/database').getDb();
   const role = req.query.role;
-  const where = role === 'rider' ? "WHERE IsVerified=1 AND VehicleOwner='Yes'" :
-                role === 'commuter' ? "WHERE IsVerified=1 AND VehicleOwner='No'" :
-                'WHERE IsVerified=1';
-  const users = db.prepare(`SELECT * FROM Users ${where} ORDER BY CreatedAt DESC`).all();
+  const users = role === 'rider'
+    ? db.prepare('SELECT u.* FROM Users u WHERE u.UserID IN (SELECT DISTINCT DriverID FROM Rides) ORDER BY u.CreatedAt DESC').all()
+    : role === 'commuter'
+    ? db.prepare('SELECT u.* FROM Users u WHERE u.UserID IN (SELECT DISTINCT UserID FROM Bookings) ORDER BY u.CreatedAt DESC').all()
+    : db.prepare('SELECT * FROM Users WHERE IsVerified=1 ORDER BY CreatedAt DESC').all();
   const rows = users.map(u => `<tr>
     <td>#${u.UserID}</td>
     <td>${esc(u.Name)}</td>
