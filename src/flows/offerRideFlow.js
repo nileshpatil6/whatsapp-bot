@@ -103,19 +103,23 @@ async function handleRepeat(phone, text, session) {
 
   if (['repeat_return', '🔄 return ride'].includes(t)) {
     const user = userService.getUserByPhone(phone);
-    const dep = tomorrowSameTime(lastRide.DepartureTime);
-    const departureTime = formatDateForDb(dep);
-    const departureDisplay = formatDepartureTime(departureTime);
     const vNum = (user && user.VehicleNumber) || lastRide.VehicleNumber || null;
     const vType = (user && user.VehicleType) || lastRide.VehicleType || 'car';
     const pricePerSeat = mapsService.calculatePrice(lastRide.DistanceKm || 0, vType);
-    const data = {
-      pickupText: lastRide.Destination, pickupLat: lastRide.DestLat, pickupLng: lastRide.DestLng,
-      destText: lastRide.PickupLocation, destLat: lastRide.PickupLat, destLng: lastRide.PickupLng,
-      vehicleType: vType, totalSeats: lastRide.TotalSeats, ridePreference: lastRide.RidePreference,
-      distanceKm: lastRide.DistanceKm || 0, vehicleNumber: vNum, pricePerSeat, departureTime, departureDisplay,
-    };
-    return loadedRouteContinue(phone, data, `🔄 *Return Ride Loaded*`, vNum, vType);
+    // Don't auto-fill time for return — destination is different so time will differ
+    sessionManager.setSession(phone, {
+      step: STEPS.OFFER_ASK_TIME,
+      data: {
+        pickupText: lastRide.Destination, pickupLat: lastRide.DestLat, pickupLng: lastRide.DestLng,
+        destText: lastRide.PickupLocation, destLat: lastRide.PickupLat, destLng: lastRide.PickupLng,
+        vehicleType: vType, totalSeats: lastRide.TotalSeats, ridePreference: lastRide.RidePreference,
+        distanceKm: lastRide.DistanceKm || 0, vehicleNumber: vNum, pricePerSeat,
+      },
+    });
+    return waClient.sendButtons(phone,
+      `🔄 *Return Ride Loaded*\n\n📍 ${lastRide.Destination} → ${lastRide.PickupLocation}\n\n🕐 *Departure Time?*\n_(e.g. 18:00, 17:30)_`,
+      [{ id: 'offer_cancel', title: '❌ Cancel' }]
+    );
   }
 
   // "New Ride"
