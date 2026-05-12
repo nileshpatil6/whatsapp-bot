@@ -17,10 +17,47 @@ app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOSt
 
 // Admin dashboard
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'loopz@admin';
-app.get('/admin', (req, res) => {
-  const { pass } = req.query;
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function adminHeader(pass, title, backLink = '') {
+  return `<!DOCTYPE html><html><head><title>Loopz Admin - ${title}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f0f2f5;color:#333}
+.header{background:#4f46e5;color:white;padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{margin:0;font-size:20px;flex:1}.header a{color:white;text-decoration:none;font-size:13px;opacity:.85}
+.header a:hover{opacity:1}.container{max-width:1300px;margin:0 auto;padding:24px 20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px}
+.card{background:white;border-radius:12px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .15s,transform .1s;text-decoration:none;display:block;color:inherit}
+.card:hover{box-shadow:0 4px 16px rgba(79,70,229,.2);transform:translateY(-2px)}
+.num{font-size:34px;font-weight:700;color:#4f46e5}.lbl{font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+h2{font-size:16px;font-weight:600;margin:0 0 12px;color:#1a1a2e;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:28px;font-size:13px}
+th{background:#4f46e5;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 14px;border-bottom:1px solid #f3f4f6;vertical-align:top}tr:last-child td{border:none}tr:hover td{background:#fafafa}
+.empty{text-align:center;color:#aaa;padding:24px!important}
+.badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-blue{background:#e0e7ff;color:#4f46e5}.badge-green{background:#d1fae5;color:#065f46}
+.badge-red{background:#fee2e2;color:#991b1b}.badge-yellow{background:#fef3c7;color:#92400e}
+a.lnk{color:#4f46e5;text-decoration:none}a.lnk:hover{text-decoration:underline}
+.back{display:inline-flex;align-items:center;gap:6px;color:#4f46e5;text-decoration:none;font-size:13px;margin-bottom:16px;font-weight:500}
+.back:hover{text-decoration:underline}
+</style></head><body>
+<div class="header">
+  <h1>🚗 Loopz Admin${title !== 'Dashboard' ? ' — ' + title : ''}</h1>
+  <a href="/admin?pass=${encodeURIComponent(pass)}">Dashboard</a>
+  <span style="opacity:.4">|</span>
+  <a href="/admin?pass=${encodeURIComponent(pass)}">${new Date().toLocaleString('en-IN')}</a>
+</div>
+<div class="container">
+${backLink ? `<a class="back" href="${backLink}">← Back to Dashboard</a>` : ''}`;
+}
+
+function adminCheck(req, res) {
+  const pass = req.query.pass || '';
   if (pass !== ADMIN_PASSWORD) {
-    return res.send(`<!DOCTYPE html><html><head><title>Loopz Admin</title>
+    res.send(`<!DOCTYPE html><html><head><title>Loopz Admin</title>
 <style>body{font-family:-apple-system,sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
 .box{background:white;padding:40px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.1);text-align:center}
 h2{margin:0 0 24px;color:#1a1a2e}input{padding:10px 14px;border:1px solid #ddd;border-radius:8px;margin-right:8px;font-size:14px;outline:none}
@@ -28,68 +65,132 @@ button{padding:10px 20px;background:#4f46e5;color:white;border:none;border-radiu
 </head><body><div class="box"><h2>🚗 Loopz Admin</h2>
 <form method="GET" action="/admin"><input type="password" name="pass" placeholder="Enter password" autofocus>
 <button type="submit">Login</button></form></div></body></html>`);
+    return null;
   }
+  return pass;
+}
+
+app.get('/admin', (req, res) => {
+  const pass = adminCheck(req, res);
+  if (!pass) return;
 
   const db = require('./db/database').getDb();
-  const q = (sql, ...p) => { try { return db.prepare(sql).all(...p); } catch (_) { return []; } };
   const s = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch (_) { return {}; } };
 
   const stats = {
-    users:            s('SELECT COUNT(*) as c FROM Users WHERE IsVerified = 1').c || 0,
-    rides:            s('SELECT COUNT(*) as c FROM Rides').c || 0,
-    activeRides:      s("SELECT COUNT(*) as c FROM Rides WHERE Status='active'").c || 0,
-    bookings:         s('SELECT COUNT(*) as c FROM Bookings').c || 0,
-    activeBookings:   s("SELECT COUNT(*) as c FROM Bookings WHERE Status='confirmed'").c || 0,
-    feedback:         s('SELECT COUNT(*) as c FROM Feedback').c || 0,
+    users:          s('SELECT COUNT(*) as c FROM Users WHERE IsVerified=1').c || 0,
+    rides:          s('SELECT COUNT(*) as c FROM Rides').c || 0,
+    activeRides:    s("SELECT COUNT(*) as c FROM Rides WHERE Status='active'").c || 0,
+    bookings:       s('SELECT COUNT(*) as c FROM Bookings').c || 0,
+    activeBookings: s("SELECT COUNT(*) as c FROM Bookings WHERE Status='confirmed'").c || 0,
+    feedback:       s('SELECT COUNT(*) as c FROM Feedback').c || 0,
   };
-  const users    = q('SELECT UserID,Name,Phone,VehicleOwner,CreatedAt FROM Users WHERE IsVerified=1 ORDER BY CreatedAt DESC LIMIT 30');
-  const feedbacks = q(`SELECT f.*,u.Name AS UserName FROM Feedback f LEFT JOIN Users u ON f.UserID=u.UserID ORDER BY f.CreatedAt DESC LIMIT 60`);
 
-  const statCard = (num, label) =>
-    `<div class="card"><div class="num">${num}</div><div class="lbl">${label}</div></div>`;
+  const p = encodeURIComponent(pass);
+  const card = (num, label, href) =>
+    `<a class="card" href="${href}"><div class="num">${num}</div><div class="lbl">${label}</div></a>`;
 
-  const uRows = users.map(u =>
-    `<tr><td>#${u.UserID}</td><td>${esc(u.Name||'—')}</td><td>${u.Phone}</td><td>${u.VehicleOwner==='Yes'?'🚗 Yes':'—'}</td><td>${(u.CreatedAt||'').slice(0,10)}</td></tr>`
-  ).join('') || '<tr><td colspan="5" class="empty">No users yet</td></tr>';
-
-  const fRows = feedbacks.map(f =>
-    `<tr><td>#${f.FeedbackID}</td><td>${esc(f.UserName||'—')}</td><td><span class="badge">${f.Role||'—'}</span></td><td>${f.BookingID?'#'+f.BookingID:'—'}</td><td>${esc(f.Message||'—')}</td><td>${(f.CreatedAt||'').slice(0,10)}</td></tr>`
-  ).join('') || '<tr><td colspan="6" class="empty">No feedback yet</td></tr>';
-
-  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  res.send(`<!DOCTYPE html><html><head><title>Loopz Admin</title>
-<style>
-*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f0f2f5;color:#333}
-.header{background:#4f46e5;color:white;padding:20px 32px;display:flex;align-items:center;gap:12px}
-.header h1{margin:0;font-size:22px}.header .sub{font-size:13px;opacity:.8;margin-left:auto}
-.container{max-width:1200px;margin:0 auto;padding:28px 24px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:32px}
-.card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.num{font-size:38px;font-weight:700;color:#4f46e5}.lbl{font-size:12px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
-h2{font-size:17px;font-weight:600;margin:0 0 12px;color:#1a1a2e}
-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:32px}
-th{background:#4f46e5;color:white;padding:11px 14px;text-align:left;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
-td{padding:10px 14px;font-size:13px;border-bottom:1px solid #f3f4f6}tr:last-child td{border:none}tr:hover td{background:#fafafa}
-.empty{text-align:center;color:#aaa;padding:24px!important}
-.badge{background:#e0e7ff;color:#4f46e5;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
-a{color:#4f46e5;text-decoration:none;font-size:13px}a:hover{text-decoration:underline}
-</style></head><body>
-<div class="header"><h1>🚗 Loopz Admin</h1><div class="sub"><a href="/admin?pass=${encodeURIComponent(ADMIN_PASSWORD)}" style="color:white">↻ Refresh</a> &nbsp; ${new Date().toLocaleString('en-IN')}</div></div>
-<div class="container">
+  res.send(adminHeader(pass, 'Dashboard') + `
 <div class="stats">
-${statCard(stats.users,'Registered Users')}
-${statCard(stats.rides,'Total Rides')}
-${statCard(stats.activeRides,'Active Rides')}
-${statCard(stats.bookings,'Total Bookings')}
-${statCard(stats.activeBookings,'Active Bookings')}
-${statCard(stats.feedback,'Feedback Entries')}
+  ${card(stats.users,       'Registered Users',  `/admin/users?pass=${p}`)}
+  ${card(stats.rides,       'Total Rides',        `/admin/rides?pass=${p}`)}
+  ${card(stats.activeRides, 'Active Rides',       `/admin/rides?pass=${p}&status=active`)}
+  ${card(stats.bookings,    'Total Bookings',     `/admin/bookings?pass=${p}`)}
+  ${card(stats.activeBookings,'Active Bookings',  `/admin/bookings?pass=${p}&status=confirmed`)}
+  ${card(stats.feedback,    'Feedback',           `/admin/feedback?pass=${p}`)}
 </div>
-<h2>Recent Users</h2>
-<table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Driver</th><th>Joined</th></tr></thead><tbody>${uRows}</tbody></table>
-<h2>Feedback</h2>
-<table><thead><tr><th>ID</th><th>User</th><th>Role</th><th>Booking</th><th>Message</th><th>Date</th></tr></thead><tbody>${fRows}</tbody></table>
 </div></body></html>`);
+});
+
+app.get('/admin/users', (req, res) => {
+  const pass = adminCheck(req, res);
+  if (!pass) return;
+  const db = require('./db/database').getDb();
+  const users = db.prepare('SELECT * FROM Users WHERE IsVerified=1 ORDER BY CreatedAt DESC').all();
+  const rows = users.map(u => `<tr>
+    <td>#${u.UserID}</td>
+    <td>${esc(u.Name)}</td>
+    <td>${esc(u.Phone)}</td>
+    <td>${esc(u.Gender||'—')}</td>
+    <td>${u.VehicleOwner==='Yes'?`<span class="badge badge-blue">Driver</span>`:'—'}</td>
+    <td>${esc(u.VehicleType||'—')} ${esc(u.VehicleNumber||'')}</td>
+    <td>${u.Rating||5.0}</td>
+    <td>₹${u.TotalEarnings||0}</td>
+    <td>${(u.CreatedAt||'').slice(0,10)}</td>
+  </tr>`).join('') || '<tr><td colspan="9" class="empty">No users</td></tr>';
+  res.send(adminHeader(pass, 'Users', `/admin?pass=${encodeURIComponent(pass)}`) + `
+<h2>👥 All Users (${users.length})</h2>
+<table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Gender</th><th>Role</th><th>Vehicle</th><th>Rating</th><th>Earnings</th><th>Joined</th></tr></thead>
+<tbody>${rows}</tbody></table></div></body></html>`);
+});
+
+app.get('/admin/rides', (req, res) => {
+  const pass = adminCheck(req, res);
+  if (!pass) return;
+  const db = require('./db/database').getDb();
+  const where = req.query.status ? `WHERE r.Status='${req.query.status}'` : '';
+  const rides = db.prepare(`SELECT r.*,u.Name as DriverName FROM Rides r LEFT JOIN Users u ON r.DriverID=u.UserID ${where} ORDER BY r.CreatedAt DESC`).all();
+  const statusBadge = s => s==='active'?'badge-green':s==='completed'?'badge-blue':'badge-red';
+  const rows = rides.map(r => `<tr>
+    <td>#${r.RideID}</td>
+    <td>${esc(r.DriverName||'—')}</td>
+    <td>${esc(r.PickupLocation)} → ${esc(r.Destination)}</td>
+    <td>${(r.DepartureTime||'').slice(0,16)}</td>
+    <td>${r.BookedSeats}/${r.TotalSeats}</td>
+    <td>₹${r.PricePerSeat}</td>
+    <td>${r.DistanceKm?r.DistanceKm.toFixed(1)+'km':'—'}</td>
+    <td>${esc(r.VehicleType||'—')} ${esc(r.VehicleNumber||'')}</td>
+    <td><span class="badge ${statusBadge(r.Status)}">${r.Status}</span></td>
+    <td>${(r.CreatedAt||'').slice(0,10)}</td>
+  </tr>`).join('') || '<tr><td colspan="10" class="empty">No rides</td></tr>';
+  const title = req.query.status ? `${req.query.status} Rides` : 'All Rides';
+  res.send(adminHeader(pass, title, `/admin?pass=${encodeURIComponent(pass)}`) + `
+<h2>🚗 ${title} (${rides.length})</h2>
+<table><thead><tr><th>ID</th><th>Driver</th><th>Route</th><th>Departure</th><th>Seats</th><th>Price</th><th>Distance</th><th>Vehicle</th><th>Status</th><th>Date</th></tr></thead>
+<tbody>${rows}</tbody></table></div></body></html>`);
+});
+
+app.get('/admin/bookings', (req, res) => {
+  const pass = adminCheck(req, res);
+  if (!pass) return;
+  const db = require('./db/database').getDb();
+  const where = req.query.status ? `WHERE b.Status='${req.query.status}'` : '';
+  const bookings = db.prepare(`SELECT b.*,u.Name as PassengerName,u.Phone as PassengerPhone,r.PickupLocation,r.Destination FROM Bookings b LEFT JOIN Users u ON b.UserID=u.UserID LEFT JOIN Rides r ON b.RideID=r.RideID ${where} ORDER BY b.CreatedAt DESC`).all();
+  const statusBadge = s => s==='confirmed'?'badge-green':s==='cancelled'?'badge-red':'badge-yellow';
+  const rows = bookings.map(b => `<tr>
+    <td>#${b.BookingID}</td>
+    <td>${esc(b.PassengerName||'—')}</td>
+    <td>${esc(b.PassengerPhone||'—')}</td>
+    <td>#${b.RideID} ${esc(b.PickupLocation||'')} → ${esc(b.Destination||'')}</td>
+    <td>${b.SeatsBooked}</td>
+    <td>₹${b.TotalAmount}</td>
+    <td><span class="badge ${statusBadge(b.Status)}">${b.Status}</span></td>
+    <td>${(b.CreatedAt||'').slice(0,10)}</td>
+  </tr>`).join('') || '<tr><td colspan="8" class="empty">No bookings</td></tr>';
+  const title = req.query.status ? `${req.query.status} Bookings` : 'All Bookings';
+  res.send(adminHeader(pass, title, `/admin?pass=${encodeURIComponent(pass)}`) + `
+<h2>🎫 ${title} (${bookings.length})</h2>
+<table><thead><tr><th>ID</th><th>Passenger</th><th>Phone</th><th>Ride</th><th>Seats</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+<tbody>${rows}</tbody></table></div></body></html>`);
+});
+
+app.get('/admin/feedback', (req, res) => {
+  const pass = adminCheck(req, res);
+  if (!pass) return;
+  const db = require('./db/database').getDb();
+  const feedbacks = db.prepare(`SELECT f.*,u.Name AS UserName FROM Feedback f LEFT JOIN Users u ON f.UserID=u.UserID ORDER BY f.CreatedAt DESC`).all();
+  const rows = feedbacks.map(f => `<tr>
+    <td>#${f.FeedbackID}</td>
+    <td>${esc(f.UserName||'—')}</td>
+    <td><span class="badge badge-blue">${f.Role||'—'}</span></td>
+    <td>${f.BookingID?'#'+f.BookingID:'—'}</td>
+    <td>${esc(f.Message||'—')}</td>
+    <td>${(f.CreatedAt||'').slice(0,10)}</td>
+  </tr>`).join('') || '<tr><td colspan="6" class="empty">No feedback</td></tr>';
+  res.send(adminHeader(pass, 'Feedback', `/admin?pass=${encodeURIComponent(pass)}`) + `
+<h2>💬 All Feedback (${feedbacks.length})</h2>
+<table><thead><tr><th>ID</th><th>User</th><th>Role</th><th>Booking</th><th>Message</th><th>Date</th></tr></thead>
+<tbody>${rows}</tbody></table></div></body></html>`);
 });
 
 async function start() {
