@@ -122,7 +122,7 @@ async function route(phone, text) {
     await waClient.sendText(phone, `✅ You accepted the booking from *${passenger ? passenger.Name : 'the commuter'}*.`);
     if (passenger) {
       waClient.sendText(passenger.Phone,
-        `🎉 *Great news!* Your driver has accepted your booking.\n\n` +
+        `🎉 *Great news!* Your Rider  has accepted your booking.\n\n` +
         `📍 Be at the pickup point on time. Safe ride! 🚗`
       ).catch(() => {});
     }
@@ -142,7 +142,7 @@ async function route(phone, text) {
     if (passenger) {
       sessionManager.clearSession(passenger.Phone);
       waClient.sendButtons(passenger.Phone,
-        `😔 Unfortunately your driver couldn't accept your booking for\n*${ride ? ride.PickupLocation + ' → ' + ride.Destination : 'your ride'}*.\n\nPlease search for another ride.`,
+        `😔 Unfortunately your Rider  couldn't accept your booking for\n*${ride ? ride.PickupLocation + ' → ' + ride.Destination : 'your ride'}*.\n\nPlease search for another ride.`,
         [{ id: 'menu_2', title: '🔍 Find Another Ride' }, { id: 'pf_menu', title: '📋 Main Menu' }]
       ).catch(() => {});
     }

@@ -66,7 +66,7 @@ function formatRideFound(ride, driver, index, total) {
 
   return (
     `🚗 *Ride Found* (${index} of ${total})${pref}\n\n` +
-    `👤 Driver: ${driver ? driver.Name : 'Unknown'}\n` +
+    `👤 Rider: ${driver ? driver.Name : 'Unknown'}\n` +
     `🗺️ Route: ${ride.PickupLocation} → ${ride.Destination}\n` +
     `🕐 Departure: ${formatDepartureTime(ride.DepartureTime)}\n` +
     `💺 Seats Available: ${available}\n` +
