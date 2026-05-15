@@ -41,4 +41,8 @@ function saveVehicleInfo(phone, vehicleType, vehicleNumber) {
   getDb().prepare('UPDATE Users SET VehicleType = ?, VehicleNumber = ? WHERE Phone = ?').run(vehicleType, vehicleNumber, phone);
 }
 
-module.exports = { getUserByPhone, getUserById, createUser, updateContactPhone, markDisclaimerSeen, updateRating, addEarnings, saveVehicleInfo };
+function updateName(phone, name) {
+  getDb().prepare('UPDATE Users SET Name = ? WHERE Phone = ?').run(name, phone);
+}
+
+module.exports = { getUserByPhone, getUserById, createUser, updateContactPhone, markDisclaimerSeen, updateRating, addEarnings, saveVehicleInfo, updateName };

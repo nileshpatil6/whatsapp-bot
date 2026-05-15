@@ -30,11 +30,11 @@ async function show(phone, user) {
   );
 
   return waClient.sendButtons(phone, '👇 Choose an option:', [
-    { id: 'menu_1', title: '🚗 Offer a Ride' },
-    { id: 'menu_2', title: '🔍 Find a Ride' },
-    { id: 'menu_3', title: '📋 My Bookings' },
-    { id: 'menu_4', title: '❓ Help' },
-    { id: 'menu_terms', title: '📜 Terms & Privacy' },
+    { id: 'menu_1',       title: '🚗 Offer a Ride' },
+    { id: 'menu_2',       title: '🔍 Find a Ride' },
+    { id: 'menu_3',       title: '📋 My Bookings' },
+    { id: 'menu_profile', title: '👤 My Profile' },
+    { id: 'menu_4',       title: '❓ Help' },
   ]);
 }
 
@@ -51,6 +51,9 @@ async function handle(phone, text, session, user) {
 
     case 'menu_3': case 'my bookings': case 'bookings': case 'my rides':
       return require('./myBookingsFlow').start(phone, user);
+
+    case 'menu_profile': case 'profile': case 'my profile':
+      return require('./profileFlow').show(phone, user);
 
     case 'menu_4': case 'help':
       return require('./flowRouter').sendHelp(phone);

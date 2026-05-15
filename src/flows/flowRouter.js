@@ -18,6 +18,7 @@ function getFlow(name) {
     case 'myBookings':   return require('./myBookingsFlow');
     case 'postTrip':     return require('./postTripFlow');
     case 'feedback':     return require('./feedbackFlow');
+    case 'profile':      return require('./profileFlow');
     default: throw new Error(`Unknown flow: ${name}`);
   }
 }
@@ -40,6 +41,13 @@ async function route(phone, text) {
   if (RESTART_CMDS.has(norm)) {
     sessionManager.clearSession(phone);
     return waClient.sendText(phone, '🔄 Session reset. Send *Hi* to start fresh. 🚗');
+  }
+
+  // --- Global: profile button ---
+  if (norm === 'menu_profile') {
+    const u = userService.getUserByPhone(phone);
+    if (!u) return getFlow('registration').start(phone);
+    return getFlow('profile').show(phone, u);
   }
 
   // --- Global: main menu button (from sendButtons CTAs) ---
@@ -248,6 +256,9 @@ async function route(phone, text) {
 
       case FLOWS.FEEDBACK:
         return getFlow('feedback').handle(phone, text, session);
+
+      case FLOWS.PROFILE:
+        return getFlow('profile').handle(phone, text, session);
 
       default:
         sessionManager.clearSession(phone);

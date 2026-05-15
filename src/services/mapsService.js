@@ -127,24 +127,25 @@ async function getRouteDistance(lat1, lng1, lat2, lng2) {
 }
 
 // Auto-calculate price per seat based on distance slab and vehicle type
-// Bike: 0-3km ₹9/km | 4-6km ₹8/km | 7-10km ₹7/km | 11-20km ₹6/km | 20+km ₹5/km
-// Car:  0-3km ₹16/km | 4-6km ₹13/km | 7-10km ₹10/km | 11-20km ₹8/km | 21-30km ₹6/km | 30+km ₹5/km
+// Car pricing (per Loopz corporate table):
+//   1-10km: ₹20 + ₹5/km  (1→25, 5→45, 10→70)
+//   11-20km: ₹70 + ₹4/km above 10  (11→74, 20→110)
+//   21-30km: ₹110 + ₹3/km above 20  (21→113, 30→140)
+//   30+km: ₹150 fixed
 function calculatePrice(distanceKm, vehicleType) {
-  const d = distanceKm;
+  const d = Math.ceil(distanceKm); // round up to nearest km
   if (vehicleType === 'bike') {
-    if (d <= 3)  return Math.max(18, Math.round(d * 9));
-    if (d <= 6)  return Math.round(d * 8);
-    if (d <= 10) return Math.round(d * 7);
-    if (d <= 20) return Math.round(d * 6);
-    return Math.round(d * 5);
+    if (d <= 3)  return Math.max(18, Math.round(distanceKm * 9));
+    if (d <= 6)  return Math.round(distanceKm * 8);
+    if (d <= 10) return Math.round(distanceKm * 7);
+    if (d <= 20) return Math.round(distanceKm * 6);
+    return Math.round(distanceKm * 5);
   }
-  // car (default for all other vehicle types)
-  if (d <= 3)  return Math.max(32, Math.round(d * 16));
-  if (d <= 6)  return Math.round(d * 13);
-  if (d <= 10) return Math.round(d * 10);
-  if (d <= 20) return Math.round(d * 8);
-  if (d <= 30) return Math.round(d * 6);
-  return Math.round(d * 5);
+  // car / all other vehicle types — Loopz corporate slab pricing
+  if (d <= 10) return 20 + d * 5;
+  if (d <= 20) return 70 + (d - 10) * 4;
+  if (d <= 30) return 110 + (d - 20) * 3;
+  return 150;
 }
 
 // Search for up to 4 matching places for a query in Hyderabad
